@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: /home/runner/work/sciitdevops/sciitdevops/terraform/aws
+        working-directory: /home/runner/work/sciitdevops/sciitdevops/terraform
 
     steps:
       - name: Checkout repository
