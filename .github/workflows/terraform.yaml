@@ -20,6 +20,10 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.7.2  # Ajustează la versiunea ta
+      - name: run
+        run: |
+          pwd
+          ls -ltr 
 
       - name: Terraform Format
         run: terraform fmt -check
