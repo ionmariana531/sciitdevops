@@ -6,6 +6,7 @@ jobs:
   terraform:
     name: "Terraform Plan & Apply"
     runs-on: ubuntu-latest
+    working-directory: ./terraform/aws
 
     steps:
       - name: Checkout repository
