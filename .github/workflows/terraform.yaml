@@ -35,7 +35,9 @@ jobs:
         run: terraform validate
 
       - name: Verifică directorul curent
-        run: pwd
+        run: |
+          pwd
+          ls -l
 
       - name: Debug AWS Credentials
         run: |
