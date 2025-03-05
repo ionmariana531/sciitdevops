@@ -34,6 +34,9 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+      - name: Verifică directorul curent
+        run: pwd
+
       - name: Debug AWS Credentials
         run: |
           echo "AWS Access Key ID: $AWS_ACCESS_KEY_ID"
