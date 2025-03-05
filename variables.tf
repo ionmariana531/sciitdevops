@@ -1,6 +1,6 @@
 variable "aws_region" {
   description = "Region to deploy the infrastructure"
-  default     = "us-west-2"
+  default     = "eu-west-1"  #Change the region from us-west-2 to eu-west-1
 }
 
 variable "vpc_cidr" {
