@@ -45,9 +45,9 @@ jobs:
           echo "Verificăm conținutul tfplan înainte de apply"
           ls -l tfplan  # Verifică dacă fișierul tfplan există
           terraform show tfplan  # Afișează conținutul planului Terraform
-       env:
-         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}          
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}          
 
       - name: Terraform Apply
         if: github.ref == 'add-terraform-github-actions-Mariana-fe' 
