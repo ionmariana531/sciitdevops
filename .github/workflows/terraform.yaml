@@ -39,6 +39,14 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "eu-west-1" # Regiunea de AWS
+
+      - name: AWS Identity Debug
+        run: aws sts get-caller-identity
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "eu-west-1" # Regiunea de AWS
 
       - name: Debug Terraform Apply
         run: |
@@ -48,20 +56,15 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}          
-
-      - name: AWS Identity Debug
-        run: aws sts get-caller-identity
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
+          AWS_REGION: "eu-west-1" # Regiunea de AWS
 
       - name: Terraform Apply
         if: github.ref == 'add-terraform-github-actions-Mariana-fe' 
-        run: terraform apply --auto-aprove tfplan 
+        run: terraform apply --auto-approve tfplan 
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "eu-west-1" # Regiunea de AWS
 
       - name: Debug Terraform Apply Output
         run: echo "Terraform Apply Output" && terraform apply -auto-approve tfplan || echo "Terraform Apply Failed"
