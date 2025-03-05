@@ -37,7 +37,7 @@ jobs:
       - name: Verifică directorul curent
         run: |
           pwd
-          ls -l
+          ls -ltra
 
       - name: Debug AWS Credentials
         run: |
