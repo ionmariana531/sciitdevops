@@ -24,8 +24,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.7.2  # Ajustează la versiunea ta
-
-      - name: Run
+      - name: run
         run: |
           echo "Verificăm fișierele din directorul curent"
           ls -ltr
@@ -45,31 +44,49 @@ jobs:
           pwd
           ls -ltra
 
-      # Configurarea AWS credentials folosind rolul definit în Terraform
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          role-to-assume: arn:aws:iam::329599661643:role/DevOps-Role
-          aws-region: "eu-west-1"
+      - name: Debug AWS Credentials
+        run: |
+          echo "AWS Access Key ID: $AWS_ACCESS_KEY_ID"
+          echo "AWS Secret Access Key: $AWS_SECRET_ACCESS_KEY"
+          aws sts get-caller-identity
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "eu-west-1"
 
       - name: Terraform Plan
         run: terraform plan -out=tfplan
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "eu-west-1" # Regiunea de AWS
 
       - name: AWS Identity Debug
         run: aws sts get-caller-identity
         env:
-          AWS_REGION: "eu-west-1"
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "eu-west-1" # Regiunea de AWS
 
       - name: Debug Terraform Apply
         run: |
           echo "Verificăm conținutul tfplan înainte de apply"
           ls -l tfplan  # Verifică dacă fișierul tfplan există
           terraform show tfplan  # Afișează conținutul planului Terraform
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}          
+          AWS_REGION: "eu-west-1" # Regiunea de AWS
 
       - name: Terraform Apply
-        if: github.ref == 'add-terraform-github-actions-Mariana-fe'
-        run: terraform apply --auto-approve tfplan
+        if: github.ref == 'add-terraform-github-actions-Mariana-fe' 
+        run: terraform apply --auto-approve tfplan 
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "eu-west-1" # Regiunea de AWS
 
       - name: Debug Terraform Apply Output
         run: echo "Terraform Apply Output" && terraform apply -auto-approve tfplan || echo "Terraform Apply Failed"
+
 
