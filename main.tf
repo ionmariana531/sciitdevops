@@ -14,6 +14,44 @@ provider "aws" {
   region = var.aws_region
 }
 
+resource "aws_iam_role" "devops_role" {
+  name               = "DevOps-Role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action    = "sts:AssumeRole"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+        Effect    = "Allow"
+        Sid       = ""
+      },
+    ]
+  })
+}
+
+# Permisiuni pentru rol
+resource "aws_iam_role_policy" "devops_role_policy" {
+  name   = "DevOpsRolePolicy"
+  role   = aws_iam_role.devops_role.name
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action   = "s3:*"
+        Effect   = "Allow"
+        Resource = "*"
+      },
+      {
+        Action   = "ec2:*"
+        Effect   = "Allow"
+        Resource = "*"
+      },
+    ]
+  })
+}
+
 data "aws_availability_zones" "available" {}
 
 locals {
