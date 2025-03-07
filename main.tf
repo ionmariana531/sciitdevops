@@ -20,17 +20,23 @@ resource "aws_iam_role" "devops_role" {
     Version = "2012-10-17"
     Statement = [
       {
-        Action    = "sts:AssumeRole"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
         Effect    = "Allow"
-        Sid       = ""
-      },
+        Principal = {
+          Federated = "arn:aws:iam::329599661643:oidc-provider/token.actions.githubusercontent.com"
+        }
+        Action    = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          }
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = "repo:ionmariana531/sciitdevops:ref:refs/heads/main"
+          }
+        }
+      }
     ]
   })
 }
-
 # Permisiuni pentru rol
 resource "aws_iam_role_policy" "devops_role_policy" {
   name   = "DevOpsRolePolicy"
