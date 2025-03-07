@@ -1,6 +1,6 @@
 name: "Terraform CI/CD"
 
-on: push
+on: push  # Rulează workflow-ul la fiecare push
 
 jobs:
   terraform:
@@ -11,8 +11,8 @@ jobs:
         working-directory: /home/runner/work/sciitdevops/sciitdevops/terraform
 
     permissions:
-      id-token: write
-      contents: read
+      id-token: write  # ✅ Permite GitHub să obțină un token OIDC pentru autentificare în AWS
+      contents: read   # ✅ Permite citirea codului repository-ului
 
     steps:
       - name: Checkout repository
@@ -25,9 +25,8 @@ jobs:
         with:
           terraform_version: 1.7.2  # Ajustează la versiunea ta
 
-      - name: Run
+      - name: Verifică fișierele din directorul curent
         run: |
-          echo "Verificăm fișierele din directorul curent"
           ls -ltr
           ls -l /home/runner/work/sciitdevops/sciitdevops/terraform
 
@@ -45,29 +44,28 @@ jobs:
           pwd
           ls -ltra
 
-      # Configurarea AWS credentials folosind rolul definit în Terraform
+      # ✅ Configurarea AWS credentials folosind rolul OIDC definit în Terraform
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          role-to-assume: arn:aws:iam::329599661643:role/DevOps-Role
+          role-to-assume: arn:aws:iam::329599661643:role/GitHub-OIDC-Role
           aws-region: "eu-west-1"
+
+      # ✅ Depanare: Afișează cine este autentificat în AWS
+      - name: Debug AWS Identity
+        run: aws sts get-caller-identity
 
       - name: Terraform Plan
         run: terraform plan -out=tfplan
 
-      - name: AWS Identity Debug
-        run: aws sts get-caller-identity
-        env:
-          AWS_REGION: "eu-west-1"
-
-      - name: Debug Terraform Apply
+      - name: Debug Terraform Plan Output
         run: |
           echo "Verificăm conținutul tfplan înainte de apply"
-          ls -l tfplan  # Verifică dacă fișierul tfplan există
-          terraform show tfplan  # Afișează conținutul planului Terraform
+          ls -l tfplan  # ✅ Verifică dacă fișierul tfplan există
+          terraform show tfplan  # ✅ Afișează conținutul planului Terraform
 
       - name: Terraform Apply
-        if: github.ref == 'add-terraform-github-actions-Mariana-fe'
+        if: github.ref == 'refs/heads/add-terraform-github-actions-Mariana-fe'
         run: terraform apply --auto-approve tfplan
 
       - name: Debug Terraform Apply Output
