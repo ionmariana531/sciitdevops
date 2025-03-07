@@ -2,6 +2,11 @@ provider "aws" {
   region = "eu-west-1"
 }
 
+# Resursa pentru zonele de disponibilitate
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
 # IAM Role pentru GitHub Actions OIDC
 resource "aws_iam_role" "github_oidc_role" {
   name = "GitHub-OIDC-Role"
