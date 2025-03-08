@@ -1,79 +1,30 @@
 name: "Terraform CI/CD"
 
-on: push  # Rulează workflow-ul la fiecare push
+on:
+  push:
+    branches: 
+      - add-terraform-github-actions-Mariana-fe 
 
 jobs:
-  terraform:
-    name: "Terraform Plan & Apply"
+  provision-ec2:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: /home/runner/work/sciitdevops/sciitdevops/terraform
 
-    permissions:
-      id-token: write  # ✅ Permite GitHub să obțină un token OIDC pentru autentificare în AWS
-      contents: read   # ✅ Permite citirea codului repository-ului
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
+      - uses: aws-actions/configure-aws-credentials@v1
         with:
-          ref: 'add-terraform-github-actions-Mariana-fe'
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.7.2  # Ajustează la versiunea ta
-
-      - name: Verifică fișierele din directorul curent
-        run: |
-          ls -ltr
-          ls -l /home/runner/work/sciitdevops/sciitdevops/terraform
-
-      - name: Terraform Format
-        run: terraform fmt -check
+          aws-access-key-id: '${{ secrets.AWS_ACCESS_KEY_ID }}'
+          aws-secret-access-key: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+          aws-region: 'eu-west-1' 
 
       - name: Terraform Init
-        run: terraform init
-
-      - name: Terraform Validate
-        run: terraform validate
-
-      - name: Verifică directorul curent
         run: |
-          pwd
-          ls -ltra
-
-      # ✅ Configurarea AWS credentials folosind rolul OIDC definit în Terraform
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          role-to-assume: arn:aws:iam::329599661643:role/GitHub-OIDC-Role
-          aws-region: "eu-west-1"
-
-      # ✅ Depanare: Afișează cine este autentificat în AWS
-      - name: Debug AWS Identity
-        run: aws sts get-caller-identity
-
-      - name: Remove existing tfplan file
-        run: rm -f tfplan
-
-      - name: Terraform Refresh
-        run: terraform refresh
-
-      - name: Terraform Plan
-        run: terraform plan -out=tfplan
-
-      - name: Debug Terraform Plan Output
+          cd terraform/aws/sciitdevops
+          terraform init
+          
+      - name: Terraform Apply 
         run: |
-          echo "Verificăm conținutul tfplan înainte de apply"
-          ls -l tfplan  # ✅ Verifică dacă fișierul tfplan există
-          terraform show tfplan  # ✅ Afișează conținutul planului Terraform
-
-      - name: Terraform Apply
-        if: github.ref == 'refs/heads/add-terraform-github-actions-Mariana-fe'
-        run: terraform apply --auto-approve tfplan
-
-      - name: Debug Terraform Apply Output
-        run: echo "Terraform Apply Output" && terraform apply -auto-approve tfplan || echo "Terraform Apply Failed"
+          cd terraform/aws/sciitdevops
+          terraform apply -auto-approve
 
