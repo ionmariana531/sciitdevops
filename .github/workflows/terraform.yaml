@@ -20,11 +20,9 @@ jobs:
 
       - name: Terraform Init
         run: |
-          cd terraform/aws/sciitdevops
           terraform init
           
       - name: Terraform Apply 
         run: |
-          cd terraform/aws/sciitdevops
           terraform apply -auto-approve
 
