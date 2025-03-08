@@ -1,16 +1,14 @@
 variable "aws_region" {
   description = "Region to deploy the infrastructure"
-  default     = "eu-west-1"  #Change the region from us-west-2 to eu-west-1
+  default     = "eu-west-1" 
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
-  default     = "10.0.0.0/16"
+variable "instance_type" {
+  description = "Type of instance which will be used"
+  default = "t2.medium"
 }
 
-variable "create_cluster" {
-  description = "Control if the EKS cluster should be created"
-  type        = bool
-  default     = true
+variable "ami" {
+  description = "Ami which will be used"
+  default = "ami-03fd334507439f4d1"
 }
-
