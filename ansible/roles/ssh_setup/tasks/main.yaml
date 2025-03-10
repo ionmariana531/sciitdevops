@@ -1,0 +1,6 @@
+- name: Ensure SSH key setup
+  authorized_key:
+    user: ubuntu
+    state: present
+    key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+

@@ -1,41 +1,10 @@
----
-- name: Configure AWS EC2 instances
-  hosts: all
-  become: yes
-  tasks:
-    - name: Update all packages
-      apt:
-        update_cache: yes
-        upgrade: dist
-
-    - name: Install dependencies (Docker, curl, Git)
-      apt:
-        name:
-          - docker.io
-          - curl
-          - git
-        state: present
-
-    - name: Start and enable Docker
-      service:
-        name: docker
-        state: started
-        enabled: yes
-
-    - name: Install k3s (lightweight Kubernetes)
-      shell: "curl -sfL https://get.k3s.io | sh -"
-      args:
-        creates: /usr/local/bin/k3s
-
-    - name: Configure firewall to allow Kubernetes traffic
-      ufw:
-        rule: allow
-        port: "6443"
-        proto: tcp
-
-    - name: Ensure SSH key exists
-      authorized_key:
-        user: ubuntu
-        state: present
-        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+- name: Configure AWS VMs
+  hosts: servers
+  become: true
+  roles:
+    - firewall
+    - docker
+    - k3s
+    - git
+    - ssh_setup
 
