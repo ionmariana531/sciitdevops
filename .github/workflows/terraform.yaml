@@ -31,12 +31,19 @@ jobs:
         run: |
           terraform apply -auto-approve
 
-      - name: Debug Terraform Output
-        run: terraform output -json
-
       - name: Save instance IPs
         run: |
           INSTANCE_IPS=$(terraform output -json instance_ips)
           echo "DEBUG: $INSTANCE_IPS"
           echo "$INSTANCE_IPS" | jq -r '.[]' > ansible/instance-ips.txt
+
+      - name: Debug file creation
+        run: |
+          echo "Checking if ansible directory exists"
+          ls -l ansible
+          echo "Saving instance IPs to file"
+          INSTANCE_IPS=$(terraform output -json instance_ips)
+          echo "$INSTANCE_IPS" | jq -r '.[]' > ansible/instance-ips.txt
+          echo "Content of ansible/instance-ips.txt:"
+          cat ansible/instance-ips.txt
 
