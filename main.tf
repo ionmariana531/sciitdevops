@@ -46,7 +46,8 @@ resource "aws_instance" "Instance1" {
 #  key_name = data.aws_key_pair.existing_key.key_name
   
 #  tags = {
-    Name = "Instance-2"
+#    Name = "Instance-2"
+
 #  }
 #}
 
