@@ -37,6 +37,10 @@ resource "aws_instance" "Instance3" {
 
 # Output added
 output "instance_ips" {
-  value = aws_instance.my_instance[*].public_ip
+  value = [
+    aws_instance.Instance1.public_ip,
+    aws_instance.Instance2.public_ip,
+    aws_instance.Instance3.public_ip
+  ]
 }
 
