@@ -28,6 +28,10 @@ jobs:
       - name: Terraform Apply 
         run: |
           terraform apply -auto-approve
+
+      - name: Debug Terraform Output
+        run: terraform output -json
+
       - name: Save instance IPs
         run: |
           INSTANCE_IPS=$(terraform output -json instance_ips)
