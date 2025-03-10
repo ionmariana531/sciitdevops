@@ -10,14 +10,32 @@ on:
 jobs:
   ansible:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Download instance IPs
-        run: echo "No need to download, reading from ansible/instance-ips.txt"
+      - name: Download Terraform outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-outputs
+          path: .
+
+      - name: Check if Terraform output changed
+        id: check_changes
+        run: |
+          echo "Checking if Terraform output has changed"
+          # Compară fișierul Terraform outputs cu ultima versiune salvată
+          if [[ ! -f terraform-outputs.json ]] || ! cmp -s terraform-outputs.json terraform-outputs-previous.json; then
+            echo "Terraform output has changed, proceeding with Ansible"
+            echo "true" >> terraform-change.txt
+          else
+            echo "No changes detected in Terraform output, skipping Ansible"
+            echo "false" >> terraform-change.txt
+          fi
 
       - name: Generate Inventory File
+        if: steps.check_changes.outputs.terraform-change == 'true'
         run: |
           echo "[servers]" > ansible/inventory.ini
           while IFS= read -r ip; do
@@ -25,11 +43,13 @@ jobs:
           done < ansible/instance-ips.txt
 
       - name: Set Permissions for SSH Key
+        if: steps.check_changes.outputs.terraform-change == 'true'
         run: echo "${{ secrets.SSH_PRIVATE_KEY }}" > app-ssh-key.pem && chmod 600 app-ssh-key.pem
 
       - name: Install Ansible
+        if: steps.check_changes.outputs.terraform-change == 'true'
         run: sudo apt update && sudo apt install -y ansible
 
       - name: Run Ansible Playbook
+        if: steps.check_changes.outputs.terraform-change == 'true'
         run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml
-
