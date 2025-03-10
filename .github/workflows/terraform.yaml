@@ -29,3 +29,6 @@ jobs:
         run: |
           terraform apply -auto-approve
 
+      - name: Save instance IPs
+        run: |
+          terraform output -json instance_ips | jq -r '.[]' > ansible/instance-ips.txt

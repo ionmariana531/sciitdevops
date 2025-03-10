@@ -1,0 +1,37 @@
+name: Configure AWS VMs with Ansible
+
+on:
+  workflow_run:
+    workflows: ["Provision AWS VMs"]
+    types:
+      - completed
+
+jobs:
+  ansible:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download instance IPs
+        uses: actions/download-artifact@v4
+        with:
+          name: instance-ips
+          path: ansible/
+
+      - name: Generate Inventory File
+        run: |
+          echo "[servers]" > ansible/inventory.ini
+          while IFS= read -r ip; do
+            echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=./app-ssh-key.pem" >> ansible/inventory.ini
+          done < ansible/instance-ips.txt
+
+      - name: Set Permissions for SSH Key
+        run: echo "${{ secrets.SSH_PRIVATE_KEY }}" > app-ssh-key.pem && chmod 600 app-ssh-key.pem
+
+      - name: Install Ansible
+        run: sudo apt update && sudo apt install -y ansible
+
+      - name: Run Ansible Playbook
+        run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml
+
