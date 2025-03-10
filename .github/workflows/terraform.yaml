@@ -37,6 +37,6 @@ jobs:
       - name: Save instance IPs
         run: |
           INSTANCE_IPS=$(terraform output -json instance_ips)
-          echo "Terraform output: $INSTANCE_IPS"  # Adaugă linia aceasta pentru debugging
+          echo "DEBUG: $INSTANCE_IPS"
           echo "$INSTANCE_IPS" | jq -r '.[]' > ansible/instance-ips.txt
 
