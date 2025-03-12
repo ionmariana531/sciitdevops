@@ -87,14 +87,14 @@ jobs:
           done < ansible/instance-ips.txt
 
       - name: Set Permissions for SSH Key
-        if: steps.check_changes.outputs.terraform-change == 'true'
+        #if: steps.check_changes.outputs.terraform-change == 'true'
         run: echo "${{ secrets.SSH_PRIVATE_KEY }}" > app-ssh-key.pem && chmod 600 app-ssh-key.pem
 
       - name: Install Ansible
-        if: steps.check_changes.outputs.terraform-change == 'true'
+        #if: steps.check_changes.outputs.terraform-change == 'true'
         run: sudo apt update && sudo apt install -y ansible
 
       - name: Run Ansible Playbook
-        if: steps.check_changes.outputs.terraform-change == 'true'
+        #if: steps.check_changes.outputs.terraform-change == 'true'
         run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml
 
