@@ -56,34 +56,30 @@ jobs:
           name: terraform-outputs
           path: terraform-outputs.json
 
-  ansible:
-    runs-on: ubuntu-latest
+            #- name: Checkout repo
+            #uses: actions/checkout@v4
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+            #- name: Download Terraform outputs
+            #uses: actions/download-artifact@v4
+            #with:
+            #name: terraform-outputs
+            #path: .
 
-      - name: Download Terraform outputs
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-outputs
-          path: .
-
-      - name: Check if Terraform output changed
-        id: check_changes
-        run: |
-          echo "Checking if Terraform output has changed"
+            #- name: Check if Terraform output changed
+            #id: check_changes
+            #run: |
+            #echo "Checking if Terraform output has changed"
           # Compară fișierul Terraform outputs cu ultima versiune salvată
-          if [[ ! -f terraform-outputs.json ]] || ! cmp -s terraform-outputs.json terraform-outputs-previous.json; then
-            echo "Terraform output has changed, proceeding with Ansible"
-            echo "true" >> terraform-change.txt
-          else
-            echo "No changes detected in Terraform output, skipping Ansible"
-            echo "false" >> terraform-change.txt
-          fi
+          #if [[ ! -f terraform-outputs.json ]] || ! cmp -s terraform-outputs.json terraform-outputs-previous.json; then
+          # echo "Terraform output has changed, proceeding with Ansible"
+          # echo "true" >> terraform-change.txt
+          #else
+          # echo "No changes detected in Terraform output, skipping Ansible"
+          # echo "false" >> terraform-change.txt
+          # fi
 
       - name: Generate Inventory File
-        if: steps.check_changes.outputs.terraform-change == 'true'
+        #if: steps.check_changes.outputs.terraform-change == 'true'
         run: |
           echo "[servers]" > ansible/inventory.ini
           while IFS= read -r ip; do
