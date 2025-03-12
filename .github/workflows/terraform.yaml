@@ -95,6 +95,6 @@ jobs:
         run: sudo apt update && sudo apt install -y ansible
 
       - name: Run Ansible Playbook
-        #if: steps.check_changes.outputs.terraform-change == 'true'
+        ##if: steps.check_changes.outputs.terraform-change == 'true'
         run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml
 
