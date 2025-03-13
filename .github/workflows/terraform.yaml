@@ -25,14 +25,6 @@ jobs:
         id: ip
         uses: haythem/public-ip@v1.2
 
-      # Pasul 4: Adaugă IP-ul GitHub Actions în Security Group pentru acces SSH
-      - name: Add GitHub Actions IP to Security Group for SSH Access
-        run: |
-          SG_ID="sg-008e2201608e83f75"  # ID-ul Security Group-ului meu
-          IP_ADDRESS="${{ steps.ip.outputs.ipv4 }}"  # Folosim ip-ul obținut din pluginul public-ip
-          aws ec2 authorize-security-group-ingress --region eu-west-1 --group-id $SG_ID --protocol tcp --port 22 --cidr $IP_ADDRESS/32
-          echo "✅ Added GitHub Actions IP ($IP_ADDRESS) to Security Group $SG_ID for SSH access."
-
       # Pașii de Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -55,7 +47,7 @@ jobs:
           echo "$INSTANCE_IPS" | jq -r '.[]' > ansible/instance-ips.txt
           echo "[servers]" > ansible/inventory.ini
           while IFS= read -r ip; do
-            echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/app-ssh-key.pem" >> ansible/inventory.ini
+            echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu_fe/terraform/aws/sciitdevops/app-ssh-key.pem" >> ansible/inventory.ini
           done < ansible/instance-ips.txt
 
       # Debugging SSH key path and checking if the file exists
@@ -65,21 +57,19 @@ jobs:
           echo "Listing files in current directory:" # Listează fișierele din directorul curent
           ls -ltra
           echo "Checking if SSH key exists:"
-          ls -l ~/.ssh/app-ssh-key.pem # Verifică dacă cheia .pem există în directorul ~/.ssh
+          ls -l /home/ubuntu_fe/terraform/aws/sciitdevops/app-ssh-key.pem # Verifică dacă cheia .pem există în locația corectă
 
       # Set Permissions for SSH Key
       - name: Set Permissions for SSH Key
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/app-ssh-key.pem
-          chmod 600 ~/.ssh/app-ssh-key.pem
-        # Asigură-te că cheia SSH este disponibilă înainte de a o folosi pentru SSH
+          chmod 600 /home/ubuntu_fe/terraform/aws/sciitdevops/app-ssh-key.pem # Setează permisiunile corecte pentru cheia SSH
 
       # Verifică conexiunea SSH folosind IP-ul din Terraform
       - name: Test SSH connection
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')  # Obține primul IP din lista de IP-uri
           echo "Trying to SSH into $INSTANCE_IP"
-          ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP
+          ssh -v -o StrictHostKeyChecking=no -i /home/ubuntu_fe/terraform/aws/sciitdevops/app-ssh-key.pem ubuntu@$INSTANCE_IP
 
       # Install Ansible
       - name: Install Ansible
@@ -89,11 +79,11 @@ jobs:
       - name: Run Ansible Playbook
         run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
 
-      # Pasul 5: Revocă IP-ul GitHub Actions din Security Group
+      # Revocă IP-ul GitHub Actions din Security Group
       - name: Revoke GitHub Actions IP from Security Group
         run: |
           SG_ID="sg-008e2201608e83f75"  # ID-ul Security Group-ului meu
-          IP_ADDRESS="${{ steps.ip.outputs.ipv4 }}"  # Folosim același IP care a fost adăugat anterior
+          IP_ADDRESS="${{ steps.ip.outputs.ipv4 }}"  # Folosim același IP care a fost obținut anterior
           aws ec2 revoke-security-group-ingress --region eu-west-1 --group-id $SG_ID --protocol tcp --port 22 --cidr $IP_ADDRESS/32
           echo "❌ Revoked GitHub Actions IP ($IP_ADDRESS) from Security Group $SG_ID."
 
