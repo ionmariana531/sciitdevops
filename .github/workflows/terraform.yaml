@@ -113,5 +113,5 @@ jobs:
 
       - name: Run Ansible Playbook
         ##if: steps.check_changes.outputs.terraform-change == 'true'
-        run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -v
+        run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
 
