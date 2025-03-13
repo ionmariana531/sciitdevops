@@ -11,14 +11,19 @@ jobs:
 
 
     steps:
+      # Checkout repo
+
       - uses: actions/checkout@v3
+
+      # Configureaza AWS credentials
+
       - uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: '${{ secrets.AWS_ACCESS_KEY_ID }}'
           aws-secret-access-key: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
           aws-region: 'eu-west-1'
 
-        # Pasul 1: Obține IP-ul GitHub Actions
+      # Pasul 3: Obține IP-ul public al GitHub Actions
       - name: Get GitHub Actions IP
         id: get_ip
         run: |
@@ -26,15 +31,15 @@ jobs:
           echo "GitHub Actions IP: $ACTIONS_IP"
           echo "::set-output name=ip::$ACTIONS_IP"
 
-      # Pasul 2: Adaugă IP-ul GitHub Actions în Security Group pentru acces SSH
+      # Pasul 4: Adaugă IP-ul GitHub Actions în Security Group pentru acces SSH
       - name: Add GitHub Actions IP to Security Group
         run: |
-          SG_ID="sg-008e2201608e83f75"  # Înlocuiește cu ID-ul Security Group-ului tău
+          SG_ID="sg-008e2201608e83f75"  # ID-ul Security Group-ului meu 
           IP_ADDRESS="${{ steps.get_ip.outputs.ip }}"
           aws ec2 authorize-security-group-ingress --region eu-west-1 --group-id $SG_ID --protocol tcp --port 22 --cidr $IP_ADDRESS/32
           echo "IP-ul $IP_ADDRESS a fost adăugat în Security Group $SG_ID pentru acces SSH."
 
-      # Pașii de Terraform 
+      # Pasul 5: Pașii de Terraform 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -48,11 +53,16 @@ jobs:
         run: |
           terraform apply -auto-approve
 
-      - name: Save instance IPs
+      # Salveaza IP-urile instantelor si creeaza fisierul de inventory pentru Ansible
+      - name: Save instance IPs and create inventory
         run: |
           INSTANCE_IPS=$(terraform output -json instance_ips)
           echo "DEBUG: $INSTANCE_IPS"
           echo "$INSTANCE_IPS" | jq -r '.[]' > ansible/instance-ips.txt
+          echo "[servers]" > ansible/inventory.ini
+          while IFS= read -r ip; do
+            echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=./app-ssh-key.pem" >> ansible/inventory.ini
+          done < ansible/instance-ips.txt
 
       - name: Debug file creation
         run: |
@@ -94,14 +104,6 @@ jobs:
           # echo "No changes detected in Terraform output, skipping Ansible"
           # echo "false" >> terraform-change.txt
           # fi
-
-      - name: Generate Inventory File
-        #if: steps.check_changes.outputs.terraform-change == 'true'
-        run: |
-          echo "[servers]" > ansible/inventory.ini
-          while IFS= read -r ip; do
-            echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=./app-ssh-key.pem" >> ansible/inventory.ini
-          done < ansible/instance-ips.txt
 
       - name: Set Permissions for SSH Key
         #if: steps.check_changes.outputs.terraform-change == 'true'
