@@ -16,8 +16,25 @@ jobs:
         with:
           aws-access-key-id: '${{ secrets.AWS_ACCESS_KEY_ID }}'
           aws-secret-access-key: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
-          aws-region: 'eu-west-1' 
+          aws-region: 'eu-west-1'
 
+        # Pasul 1: Obține IP-ul GitHub Actions
+      - name: Get GitHub Actions IP
+        id: get_ip
+        run: |
+          ACTIONS_IP=$(curl -s https://checkip.amazonaws.com)
+          echo "GitHub Actions IP: $ACTIONS_IP"
+          echo "::set-output name=ip::$ACTIONS_IP"
+
+      # Pasul 2: Adaugă IP-ul GitHub Actions în Security Group pentru acces SSH
+      - name: Add GitHub Actions IP to Security Group
+        run: |
+          SG_ID="sg-xxxxxxx"  # Înlocuiește cu ID-ul Security Group-ului tău
+          IP_ADDRESS="${{ steps.get_ip.outputs.ip }}"
+          aws ec2 authorize-security-group-ingress --region eu-west-1 --group-id $SG_ID --protocol tcp --port 22 --cidr $IP_ADDRESS/32
+          echo "IP-ul $IP_ADDRESS a fost adăugat în Security Group $SG_ID pentru acces SSH."
+
+      # Pașii de Terraform 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
