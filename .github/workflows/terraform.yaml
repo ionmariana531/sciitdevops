@@ -64,6 +64,11 @@ jobs:
             echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=./app-ssh-key.pem" >> ansible/inventory.ini
           done < ansible/instance-ips.txt
 
+      - name: Debug inventory.ini file
+        run: |
+          echo "Contents of ansible/inventory.ini:"
+          cat ansible/inventory.ini
+
       - name: Debug file creation
         run: |
           echo "Checking if ansible directory exists"
