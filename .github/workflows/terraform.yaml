@@ -47,7 +47,7 @@ jobs:
           echo "$INSTANCE_IPS" | jq -r '.[]' > ansible/instance-ips.txt
           echo "[servers]" > ansible/inventory.ini
           while IFS= read -r ip; do
-            echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu_fe/terraform/aws/sciitdevops/app-ssh-key.pem" >> ansible/inventory.ini
+            echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu_fe/.ssh/app-ssh-key.pem" >> ansible/inventory.ini
           done < ansible/instance-ips.txt
 
       # Debugging SSH key path and checking if the file exists
@@ -57,19 +57,19 @@ jobs:
           echo "Listing files in current directory:" # Listează fișierele din directorul curent
           ls -ltra
           echo "Checking if SSH key exists:"
-          ls -l /home/ubuntu_fe/terraform/aws/sciitdevops/app-ssh-key.pem # Verifică dacă cheia .pem există în locația corectă
+          ls -l /home/ubuntu_fe/.ssh/app-ssh-key.pem # Verifică dacă cheia .pem există în locația corectă
 
       # Set Permissions for SSH Key
       - name: Set Permissions for SSH Key
         run: |
-          chmod 600 /home/ubuntu_fe/terraform/aws/sciitdevops/app-ssh-key.pem # Setează permisiunile corecte pentru cheia SSH
+          chmod 600 /home/ubuntu_fe/.ssh/app-ssh-key.pem # Setează permisiunile corecte pentru cheia SSH
 
       # Verifică conexiunea SSH folosind IP-ul din Terraform
       - name: Test SSH connection
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')  # Obține primul IP din lista de IP-uri
           echo "Trying to SSH into $INSTANCE_IP"
-          ssh -v -o StrictHostKeyChecking=no -i /home/ubuntu_fe/terraform/aws/sciitdevops/app-ssh-key.pem ubuntu@$INSTANCE_IP
+          ssh -v -o StrictHostKeyChecking=no -i /home/ubuntu_fe/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP
 
       # Install Ansible
       - name: Install Ansible
