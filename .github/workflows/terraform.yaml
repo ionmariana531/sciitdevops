@@ -56,6 +56,7 @@ jobs:
           echo "[servers]" > ansible/inventory.ini
           while IFS= read -r ip; do
           echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=./app-ssh-key.pem" >> ansible/inventory.ini
+          done < ansible/instance-ips.txt
 
       - name: Debug inventory.ini file
         run: |
