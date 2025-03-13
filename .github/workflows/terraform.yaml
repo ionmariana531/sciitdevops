@@ -55,5 +55,37 @@ jobs:
           echo "$INSTANCE_IPS" | jq -r '.[]' > ansible/instance-ips.txt
           echo "[servers]" > ansible/inventory.ini
           while IFS= read -r ip; do
-            echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=./app-ssh-key.p
+          echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=./app-ssh-key.pem" >> ansible/inventory.ini
+
+      - name: Debug inventory.ini file
+        run: |
+          echo "Contents of ansible/inventory.ini:"
+          cat ansible/inventory.ini
+
+      - name: Debug file creation
+        run: |
+          echo "Checking if ansible directory exists"
+          ls -l ansible
+          echo "Saving instance IPs to file"
+          INSTANCE_IPS=$(terraform output -json instance_ips)
+          echo "$INSTANCE_IPS" | jq -r '.[]' > ansible/instance-ips.txt
+          echo "Content of ansible/instance-ips.txt:"
+          cat ansible/instance-ips.txt
+
+      # Set Permissions for SSH Key
+      - run: echo "${{ secrets.SSH_PRIVATE_KEY }}" > app-ssh-key.pem && chmod 600 app-ssh-key.pem
+
+      # Install Ansible
+      - run: sudo apt update && sudo apt install -y ansible
+
+      # Run Ansible Playbook
+      - run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
+
+      # Pasul 5: Revocă IP-ul GitHub Actions din Security Group
+      - name: Revoke GitHub Actions IP from Security Group
+        run: |
+          SG_ID="sg-008e2201608e83f75"  # ID-ul Security Group-ului meu
+          IP_ADDRESS="${{ steps.ip.outputs.ipv4 }}"  # Folosim același IP care a fost adăugat anterior
+          aws ec2 revoke-security-group-ingress --region eu-west-1 --group-id $SG_ID --protocol tcp --port 22 --cidr $IP_ADDRESS/32
+          echo "❌ Revoked GitHub Actions IP ($IP_ADDRESS) from Security Group $SG_ID."
 
