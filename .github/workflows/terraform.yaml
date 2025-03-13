@@ -2,44 +2,38 @@ name: "Terraform CI/CD"
 
 on:
   push:
-    branches: 
-      - add-terraform-github-actions-Mariana-fe 
+    branches:
+      - add-terraform-github-actions-Mariana-fe
 
 jobs:
   provision-ec2:
     runs-on: ubuntu-latest
 
-
     steps:
       # Checkout repo
-
       - uses: actions/checkout@v3
 
       # Configureaza AWS credentials
-
       - uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: '${{ secrets.AWS_ACCESS_KEY_ID }}'
           aws-secret-access-key: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
           aws-region: 'eu-west-1'
 
-      # Pasul 3: Obține IP-ul public al GitHub Actions
-      - name: Get GitHub Actions IP
-        id: get_ip
-        run: |
-          ACTIONS_IP=$(curl -s https://checkip.amazonaws.com)
-          echo "GitHub Actions IP: $ACTIONS_IP"
-          echo "::set-output name=ip::$ACTIONS_IP"
+      # Pasul 3: Obține IP-ul public al GitHub Actions folosind pluginul haythem/public-ip
+      - name: Get GitHub Actions Runner IP
+        id: ip
+        uses: haythem/public-ip@v1.2
 
       # Pasul 4: Adaugă IP-ul GitHub Actions în Security Group pentru acces SSH
-      - name: Add GitHub Actions IP to Security Group
+      - name: Add GitHub Actions IP to Security Group for SSH Access
         run: |
-          SG_ID="sg-008e2201608e83f75"  # ID-ul Security Group-ului meu 
-          IP_ADDRESS="${{ steps.get_ip.outputs.ip }}"
+          SG_ID="sg-008e2201608e83f75"  # ID-ul Security Group-ului meu
+          IP_ADDRESS="${{ steps.ip.outputs.ipv4 }}"  # Folosim ip-ul obținut din pluginul public-ip
           aws ec2 authorize-security-group-ingress --region eu-west-1 --group-id $SG_ID --protocol tcp --port 22 --cidr $IP_ADDRESS/32
-          echo "IP-ul $IP_ADDRESS a fost adăugat în Security Group $SG_ID pentru acces SSH."
+          echo "✅ Added GitHub Actions IP ($IP_ADDRESS) to Security Group $SG_ID for SSH access."
 
-      # Pasul 5: Pașii de Terraform 
+      # Pașii de Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -48,12 +42,12 @@ jobs:
       - name: Terraform Init
         run: |
           terraform init
-          
-      - name: Terraform Apply 
+
+      - name: Terraform Apply
         run: |
           terraform apply -auto-approve
 
-      # Salveaza IP-urile instantelor si creeaza fisierul de inventory pentru Ansible
+      # Salvează IP-urile instanțelor și creează fișierul de inventory pentru Ansible
       - name: Save instance IPs and create inventory
         run: |
           INSTANCE_IPS=$(terraform output -json instance_ips)
@@ -79,46 +73,20 @@ jobs:
           echo "Content of ansible/instance-ips.txt:"
           cat ansible/instance-ips.txt
 
-      - name: Save Terraform output
-        run: terraform output -json > terraform-outputs.json
+      # Set Permissions for SSH Key
+      run: echo "${{ secrets.SSH_PRIVATE_KEY }}" > app-ssh-key.pem && chmod 600 app-ssh-key.pem
 
-      - name: Upload Terraform outputs as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-outputs
-          path: terraform-outputs.json
+      # Install Ansible
+      run: sudo apt update && sudo apt install -y ansible
 
-            #- name: Checkout repo
-            #uses: actions/checkout@v4
+      # Run Ansible Playbook
+      run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
 
-            #- name: Download Terraform outputs
-            #uses: actions/download-artifact@v4
-            #with:
-            #name: terraform-outputs
-            #path: .
-
-            #- name: Check if Terraform output changed
-            #id: check_changes
-            #run: |
-            #echo "Checking if Terraform output has changed"
-          # Compară fișierul Terraform outputs cu ultima versiune salvată
-          #if [[ ! -f terraform-outputs.json ]] || ! cmp -s terraform-outputs.json terraform-outputs-previous.json; then
-          # echo "Terraform output has changed, proceeding with Ansible"
-          # echo "true" >> terraform-change.txt
-          #else
-          # echo "No changes detected in Terraform output, skipping Ansible"
-          # echo "false" >> terraform-change.txt
-          # fi
-
-      - name: Set Permissions for SSH Key
-        #if: steps.check_changes.outputs.terraform-change == 'true'
-        run: echo "${{ secrets.SSH_PRIVATE_KEY }}" > app-ssh-key.pem && chmod 600 app-ssh-key.pem
-
-      - name: Install Ansible
-        #if: steps.check_changes.outputs.terraform-change == 'true'
-        run: sudo apt update && sudo apt install -y ansible
-
-      - name: Run Ansible Playbook
-        ##if: steps.check_changes.outputs.terraform-change == 'true'
-        run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
+      # Pasul 5: Revocă IP-ul GitHub Actions din Security Group
+      - name: Revoke GitHub Actions IP from Security Group
+        run: |
+          SG_ID="sg-008e2201608e83f75"  # ID-ul Security Group-ului meu
+          IP_ADDRESS="${{ steps.ip.outputs.ipv4 }}"  # Folosim același IP care a fost adăugat anterior
+          aws ec2 revoke-security-group-ingress --region eu-west-1 --group-id $SG_ID --protocol tcp --port 22 --cidr $IP_ADDRESS/32
+          echo "❌ Revoked GitHub Actions IP ($IP_ADDRESS) from Security Group $SG_ID."
 
