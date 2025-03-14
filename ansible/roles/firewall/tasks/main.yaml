@@ -1,19 +1,49 @@
-- name: Allow SSH (port 22)
+---
+- name: Ensure UFW is installed
+  apt:
+    name: ufw
+    state: present
+  become: true
+
+- name: Allow SSH (port 22) from GitHub Actions IPs
   ufw:
     rule: allow
     port: "22"
+    from_ip: "{{ lookup('env', 'GITHUB_IPS') | default('0.0.0.0/0') }}"
+  become: true
 
 - name: Allow HTTP (port 80)
   ufw:
     rule: allow
     port: "80"
+  become: true
 
 - name: Allow HTTPS (port 443)
   ufw:
     rule: allow
     port: "443"
+  become: true
+
+- name: Allow Docker ports (optional, if using Docker)
+  ufw:
+    rule: allow
+    port: "2375"
+  become: true
+
+- name: Allow K3s ports (optional, if using K3s)
+  ufw:
+    rule: allow
+    port: "6443"
+  become: true
+
+- name: Allow all traffic from localhost
+  ufw:
+    rule: allow
+    from_ip: "127.0.0.1"
+  become: true
 
 - name: Enable UFW
   ufw:
     state: enabled
+  become: true
 

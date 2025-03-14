@@ -3,8 +3,8 @@
   become: true
   roles:
     - firewall
+    - ssh_setup
     - docker
     - k3s
     - git
-    - ssh_setup
 
