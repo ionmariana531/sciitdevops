@@ -58,7 +58,7 @@ jobs:
             echo "✅ SSH is available on $ip!"
           done
 
-      # 🔥 Add SSH Key from GitHub Secrets
+      #  Add SSH Key from GitHub Secrets
       - name: Add SSH Key
         run: |
           mkdir -p ~/.ssh
