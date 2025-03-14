@@ -36,14 +36,13 @@ jobs:
       - name: Save instance IPs and create inventory
         run: |
           INSTANCE_IPS=$(terraform output -json instance_ips)
-          echo "DEBUG: $INSTANCE_IPS"
           echo "$INSTANCE_IPS" | jq -r '.[]' > ansible/instance-ips.txt
           echo "[servers]" > ansible/inventory.ini
           while IFS= read -r ip; do
-            echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu_fe/.ssh/app-ssh-key.pem" >> ansible/inventory.ini
+            echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
           done < ansible/instance-ips.txt
 
-      # Wait for instances to be ready
+      # Wait for SSH to be available
       - name: Wait for SSH to be available
         run: |
           for ip in $(cat ansible/instance-ips.txt); do
@@ -59,25 +58,19 @@ jobs:
             echo "✅ SSH is available on $ip!"
           done
 
-      # Debugging SSH Key Path and checking if the file exists
-      - name: Debug SSH Key Path
+      # 🔥 Add SSH Key from GitHub Secrets
+      - name: Add SSH Key
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Listing files in current directory:"
-          ls -ltra
-          echo "Checking if SSH key exists:"
-          ls -l /home/ubuntu_fe/.ssh/app-ssh-key.pem
-
-      # Set Permissions for SSH Key
-      - name: Set Permissions for SSH Key
-        run: chmod 600 /home/ubuntu_fe/.ssh/app-ssh-key.pem
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > ~/.ssh/aws-key.pem
+          chmod 600 ~/.ssh/aws-key.pem
 
       # Test SSH connection
       - name: Test SSH connection
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           echo "Trying to SSH into $INSTANCE_IP"
-          ssh -v -o StrictHostKeyChecking=no -i /home/ubuntu_fe/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP
+          ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/aws-key.pem ubuntu@$INSTANCE_IP
 
       # Install Ansible
       - name: Install Ansible
