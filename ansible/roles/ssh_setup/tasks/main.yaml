@@ -2,5 +2,5 @@
   authorized_key:
     user: ubuntu
     state: present
-    key: "{{ lookup('file', '~/.ssh/app-ssh-key.pub') }}"
+    key: "{{ lookup('env', 'AWS_SSH_PUBLIC_KEY') }}"
 
