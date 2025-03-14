@@ -5,6 +5,11 @@
     state: present
   become: true
 
+- name: Enable UFW if it's not already enabled
+  ufw:
+    state: enabled
+  become: true
+
 - name: Allow SSH (port 22) from GitHub Actions IPs
   ufw:
     rule: allow
