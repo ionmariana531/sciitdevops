@@ -46,21 +46,29 @@ jobs:
             echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
           done < ansible/instance-ips.txt
 
-      # Wait for SSH to be available
+      # Wait for SSH to be available (with retry and progressive wait)
       - name: Wait for SSH to be available
         run: |
           for ip in $(cat ansible/instance-ips.txt); do
             echo "⏳ Waiting for SSH on $ip..."
             SECONDS=0
-            while ! nc -z $ip 22; do
-              sleep 10
-              if [ $SECONDS -gt 300 ]; then
-                echo "❌ Timeout: SSH is not available on $ip after 5 minutes."
+            RETRIES=10
+            for i in $(seq 1 $RETRIES); do
+              if nc -z $ip 22; then
+                echo "✅ SSH is available on $ip!"
+                break
+              fi
+              echo "⏳ SSH is not available, retrying in $((i * 10)) seconds..."
+              sleep $((i * 10))  # Progresivitatea crește timpul de așteptare la fiecare retry
+              if [ $i -eq $RETRIES ]; then
+                echo "❌ Timeout: SSH is not available on $ip after $((i * 10)) seconds."
                 exit 1
               fi
             done
-            echo "✅ SSH is available on $ip!"
           done
+
+
+
 
       #  Add SSH Key from GitHub Secrets
       - name: Add SSH Key
@@ -69,16 +77,34 @@ jobs:
           echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > ~/.ssh/aws-key.pem
           chmod 600 ~/.ssh/aws-key.pem
 
-      # Test SSH connection
+      # Test SSH connection (with retries)
       - name: Test SSH connection
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           echo "Trying to SSH into $INSTANCE_IP"
-          ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/aws-key.pem ubuntu@$INSTANCE_IP
+          RETRIES=5
+          SUCCESS=0
+          for i in $(seq 1 $RETRIES); do
+            if ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/aws-key.pem ubuntu@$INSTANCE_IP; then
+              SUCCESS=1
+              break
+            else
+              echo "❌ Attempt $i failed. Retrying in $((i * 20)) seconds..."
+              sleep $((i * 20))  # Creștem timpul de așteptare la fiecare încercare
+            fi
+          done
+
+          if [ $SUCCESS -eq 0 ]; then
+            echo "❌ SSH connection failed after $RETRIES attempts."
+            exit 1
+          fi
+          echo "✅ SSH connection successful!"
 
       # Install Ansible
       - name: Install Ansible
-        run: sudo apt update && sudo apt install -y ansible
+        run: |
+          sudo apt update && sudo apt install -y ansible
+          ansible --version
 
       # Run Ansible Playbook
       - name: Run Ansible Playbook
