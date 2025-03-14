@@ -42,8 +42,20 @@
     from_ip: "127.0.0.1"
   become: true
 
+- name: Ensure UFW is active (status check)
+  ufw:
+    state: enabled
+  become: true
+
 - name: Enable UFW
   ufw:
     state: enabled
+  become: true
+
+- name: Ensure SSH service is enabled and running
+  service:
+    name: ssh
+    state: started
+    enabled: true
   become: true
 

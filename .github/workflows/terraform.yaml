@@ -5,6 +5,10 @@ on:
     branches:
       - add-terraform-github-actions-Mariana-fe
 
+  workflow_dispatch:
+
+
+
 jobs:
   provision-ec2:
     runs-on: ubuntu-latest
