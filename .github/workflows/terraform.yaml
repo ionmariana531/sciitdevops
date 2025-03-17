@@ -7,8 +7,6 @@ on:
 
   workflow_dispatch:
 
-
-
 jobs:
   provision-ec2:
     runs-on: ubuntu-latest
@@ -36,41 +34,24 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -auto-approve
 
-      # Save instance IPs and create inventory file for Ansible
-      - name: Save instance IPs and create inventory
+      # Generate Ansible Inventory File based on Terraform output
+      - name: Generate Ansible Inventory
         run: |
+          echo "[master]" > ansible/inventory.ini
+          echo "[worker]" >> ansible/inventory.ini
           INSTANCE_IPS=$(terraform output -json instance_ips)
-          echo "$INSTANCE_IPS" | jq -r '.[]' > ansible/instance-ips.txt
-          echo "[servers]" > ansible/inventory.ini
-          while IFS= read -r ip; do
-            echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
-          done < ansible/instance-ips.txt
 
-      # Wait for SSH to be available (with retry and progressive wait)
-      - name: Wait for SSH to be available
-        run: |
-          for ip in $(cat ansible/instance-ips.txt); do
-            echo "⏳ Waiting for SSH on $ip..."
-            SECONDS=0
-            RETRIES=10
-            for i in $(seq 1 $RETRIES); do
-              if nc -z $ip 22; then
-                echo "✅ SSH is available on $ip!"
-                break
-              fi
-              echo "⏳ SSH is not available, retrying in $((i * 10)) seconds..."
-              sleep $((i * 10))  # Progresivitatea crește timpul de așteptare la fiecare retry
-              if [ $i -eq $RETRIES ]; then
-                echo "❌ Timeout: SSH is not available on $ip after $((i * 10)) seconds."
-                exit 1
-              fi
-            done
+          # Extract Master Node IP and add it to the inventory
+          MASTER_IP=$(echo "$INSTANCE_IPS" | jq -r '.[0]')
+          echo "$MASTER_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
+
+          # Extract Worker Node IPs and add them to the inventory
+          WORKER_IPS=$(echo "$INSTANCE_IPS" | jq -r '.[1:]')
+          for ip in $WORKER_IPS; do
+            echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
           done
 
-
-
-
-      #  Add SSH Key from GitHub Secrets
+      # Add SSH Key from GitHub Secrets
       - name: Add SSH Key
         run: |
           mkdir -p ~/.ssh
@@ -106,10 +87,11 @@ jobs:
           sudo apt update && sudo apt install -y ansible
           ansible --version
 
-      # Run Ansible Playbook for installing K3s, Docker, GIT and SSH-SETUP
+      # Run Ansible Playbook for installing K3s, Docker, GIT, and SSH-SETUP
       - name: Run Ansible Playbook
         run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
 
-      # Run Ansible Playbook for configuring k3s cluster
+      # Run Ansible Playbook to configure k3s cluster
       - name: Run Ansible Playbook to configure k3s cluster
         run: ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
+

@@ -42,6 +42,7 @@ resource "aws_instance" "Instance1" {
 
   tags = {
     Name = "Instance-1"
+    "Master-Node" = "true"
   }
 }
 
@@ -54,6 +55,7 @@ resource "aws_instance" "Instance2" {
 
   tags = {
     Name = "Instance-2"
+    "Worker-Node" = "true"
   }
 }
 
@@ -73,7 +75,7 @@ resource "aws_instance" "Instance2" {
 output "instance_ips" {
   value = [
     aws_instance.Instance1.public_ip,
-#    aws_instance.Instance2.public_ip,
+    aws_instance.Instance2.public_ip
 #    aws_instance.Instance3.public_ip
   ]
 }
