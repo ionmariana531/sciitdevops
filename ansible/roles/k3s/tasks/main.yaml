@@ -1,3 +1,10 @@
+---
+# roles/k3s/tasks/main.yaml
+
 - name: Install k3s
   shell: curl -sfL https://get.k3s.io | sh -
+  become: true
+
+    #- name: Include k3s setup tasks (master and worker nodes)
+    #include_tasks: k3s_setup.yaml
 

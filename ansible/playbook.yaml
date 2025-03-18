@@ -8,15 +8,8 @@
     - docker
     - git
 
-- name: Configure k3s Cluster Master
+- name: Configure k3s Master
   hosts: master
   become: true
   roles:
-    - k3s_master  # Asigură-te că ai creat rolul k3s_master pentru configurarea masterului
-
-- name: Configure k3s Cluster Worker
-  hosts: worker
-  become: true
-  roles:
-    - k3s_worker  # Asigură-te că ai creat rolul k3s_worker pentru configurarea workerului
-
+    - k3s  # Adăugat rolul k3s
