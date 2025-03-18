@@ -89,7 +89,7 @@ jobs:
 
       # Run Ansible Playbook for installing K3s, Docker, GIT, and SSH-SETUP
       - name: Run Ansible Playbook
-        run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
+        run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml --list-tasks
 
       # Run Ansible Playbook to configure k3s cluster
       #- name: Run Ansible Playbook to configure k3s cluster
