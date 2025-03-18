@@ -1,0 +1,48 @@
+---
+- name: Install ArgoCD and Jenkins on k3s
+  hosts: master
+  become: yes
+  tasks:
+    # 📌 Instalare ArgoCD
+    - name: Download ArgoCD manifests
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+        dest: /tmp/argocd-install.yaml
+
+    - name: Apply ArgoCD manifests
+      ansible.builtin.command:
+        cmd: kubectl apply -f /tmp/argocd-install.yaml
+      changed_when: true
+
+    - name: Expose ArgoCD server using port-forwarding
+      ansible.builtin.command:
+        cmd: kubectl port-forward svc/argocd-server -n argocd 8080:443
+      async: 0
+      poll: 0
+      changed_when: true
+
+    # 📌 Instalare Jenkins
+    - name: Copy Jenkins Deployment manifest
+      ansible.builtin.copy:
+        src: jenkins-deployment.yaml
+        dest: /tmp/jenkins-deployment.yaml
+
+    - name: Copy Jenkins PVC manifest
+      ansible.builtin.copy:
+        src: jenkins-pvc.yaml
+        dest: /tmp/jenkins-pvc.yaml
+
+    - name: Apply Jenkins Deployment manifest
+      ansible.builtin.command:
+        cmd: kubectl apply -f /tmp/jenkins-deployment.yaml
+      changed_when: true
+
+    - name: Apply Jenkins PVC manifest
+      ansible.builtin.command:
+        cmd: kubectl apply -f /tmp/jenkins-pvc.yaml
+      changed_when: true
+
+    - name: Expose Jenkins service
+      ansible.builtin.command:
+        cmd: kubectl expose deployment jenkins --type=NodePort --name=jenkins-service --port=8080 --target-port=8080
+      changed_when: true

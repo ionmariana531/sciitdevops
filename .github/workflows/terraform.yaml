@@ -95,3 +95,7 @@ jobs:
       - name: Run Ansible Playbook to configure k3s cluster
         run: ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
 
+      # Run Ansible Playbook to deploy ArgoCD and Jenkins
+      - name: Run Ansible Playbook for ArgoCD & Jenkins
+        run: ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv
+
