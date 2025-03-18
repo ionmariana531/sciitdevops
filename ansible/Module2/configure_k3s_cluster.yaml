@@ -15,6 +15,13 @@
         state: started
         enabled: yes
 
+    - name: Change permissions for kubeconfig file
+      file:
+        path: /etc/rancher/k3s/k3s.yaml
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+
     - name: Create .kube directory
       file:
         path: /home/ubuntu/.kube

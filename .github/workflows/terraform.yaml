@@ -92,6 +92,6 @@ jobs:
         run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
 
       # Run Ansible Playbook to configure k3s cluster
-      #- name: Run Ansible Playbook to configure k3s cluster
-      #  run: ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
+      - name: Run Ansible Playbook to configure k3s cluster
+        run: ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
 
