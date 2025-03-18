@@ -38,7 +38,7 @@ jobs:
       - name: Generate Ansible Inventory
         run: |
           echo "[master]" > ansible/inventory.ini
-          echo "[worker]" >> ansible/inventory.ini
+          # echo "[worker]" >> ansible/inventory.ini
           INSTANCE_IPS=$(terraform output -json instance_ips)
 
           # Extract Master Node IP and add it to the inventory
@@ -46,10 +46,10 @@ jobs:
           echo "$MASTER_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
 
           # Extract Worker Node IPs and add them to the inventory
-          WORKER_IPS=$(echo "$INSTANCE_IPS" | jq -r '.[1:]')
-          for ip in $WORKER_IPS; do
-            echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
-          done
+          # WORKER_IPS=$(echo "$INSTANCE_IPS" | jq -r '.[1:]')
+          # for ip in $WORKER_IPS; do
+          #  echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
+          # done
 
       # Add SSH Key from GitHub Secrets
       - name: Add SSH Key

@@ -27,6 +27,33 @@ resource "aws_security_group_rule" "open_ssh" {
   cidr_blocks       = ["0.0.0.0/0"] # ⚠️ DANGEROUS: SSH allowed from anywhere
 }
 
+resource "aws_security_group_rule" "egress_http" {
+  security_group_id = data.aws_security_group.existing_sg.id
+  type              = "egress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "egress_https" {
+  security_group_id = data.aws_security_group.existing_sg.id
+  type              = "egress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "egress_dns_tcp" {
+  security_group_id = data.aws_security_group.existing_sg.id
+  type              = "egress"
+  from_port         = 53
+  to_port           = 53
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
 # Select the key
 data "aws_key_pair" "existing_key" {
   key_name = "app-ssh-key"
@@ -46,18 +73,18 @@ resource "aws_instance" "Instance1" {
   }
 }
 
-resource "aws_instance" "Instance2" {
-  ami                    = "ami-03fd334507439f4d1"
-  instance_type          = "t2.medium"
-  subnet_id              = data.aws_subnet.Subnet-VPC.id
-  vpc_security_group_ids = [data.aws_security_group.existing_sg.id]
-  key_name               = data.aws_key_pair.existing_key.key_name
+#resource "aws_instance" "Instance2" {
+#  ami                    = "ami-03fd334507439f4d1"
+#  instance_type          = "t2.medium"
+#  subnet_id              = data.aws_subnet.Subnet-VPC.id
+#  vpc_security_group_ids = [data.aws_security_group.existing_sg.id]
+#  key_name               = data.aws_key_pair.existing_key.key_name
 
-  tags = {
-    Name = "Instance-2"
-    "Worker-Node" = "true"
-  }
-}
+#  tags = {
+#    Name = "Instance-2"
+#    "Worker-Node" = "true"
+#  }
+#}
 
 #resource "aws_instance" "Instance3" {
 #  ami                    = "ami-03fd334507439f4d1"
@@ -75,7 +102,7 @@ resource "aws_instance" "Instance2" {
 output "instance_ips" {
   value = [
     aws_instance.Instance1.public_ip,
-    aws_instance.Instance2.public_ip
+#    aws_instance.Instance2.public_ip
 #    aws_instance.Instance3.public_ip
   ]
 }
