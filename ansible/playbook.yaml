@@ -1,15 +1,11 @@
 ---
-- name: Configure AWS VMs
-  hosts: servers
+- name: Configure AWS VM (Master)
+  hosts: master
   become: true
   roles:
     - firewall
     - ssh_setup
     - docker
     - git
+    - k3s  # Adăugăm k3s la final, după Docker
 
-- name: Configure k3s Master
-  hosts: master
-  become: true
-  roles:
-    - k3s  # Adăugat rolul k3s
