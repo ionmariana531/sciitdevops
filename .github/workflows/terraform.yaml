@@ -101,6 +101,11 @@ jobs:
       - name: Verify pip installation
         run: python3.9 -m pip --version
 
+      # Run Ansible playbook for Collections
+      - name: Install Ansible collections
+        run: |
+          ansible-galaxy collection install -r ansible/Module2/collection-requirements.yaml          
+
       # Run Ansible Playbook for installing K3s, Docker, GIT, and SSH-SETUP
       - name: Run Ansible Playbook
         run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
