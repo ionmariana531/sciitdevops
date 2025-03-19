@@ -3,21 +3,42 @@
   hosts: master
   become: yes
   tasks:
+  
+    # 📌 Verifică contextul Kubernetes
+    - name: Check Kubernetes Context
+      ansible.builtin.command:
+        cmd: kubectl config current-context
+      register: k8s_context
+    - debug: 
+        msg: "Current Kubernetes context: {{ k8s_context.stdout }}"
+
     # 📌 Instalare ArgoCD
     - name: Download ArgoCD manifests
       ansible.builtin.get_url:
         url: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
         dest: /tmp/argocd-install.yaml
+        mode: '0644'
 
     - name: Apply ArgoCD manifests
       ansible.builtin.command:
         cmd: kubectl apply -f /tmp/argocd-install.yaml
       changed_when: true
 
-    - name: Expose ArgoCD server using port-forwarding
+    - name: Wait for ArgoCD pods to be ready
       ansible.builtin.command:
-        cmd: kubectl port-forward svc/argocd-server -n argocd 8080:443
-      async: 0
+        cmd: kubectl wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd
+      changed_when: false
+
+    - name: Verify ArgoCD installation
+      ansible.builtin.command:
+        cmd: kubectl get pods -n argocd
+      register: argocd_pods
+    - debug:
+        msg: "{{ argocd_pods.stdout }}"
+
+    - name: Expose ArgoCD server using port-forwarding
+      ansible.builtin.shell: nohup kubectl port-forward svc/argocd-server -n argocd 8080:443 > /dev/null 2>&1 &
+      async: 600
       poll: 0
       changed_when: true
 
@@ -26,11 +47,13 @@
       ansible.builtin.copy:
         src: jenkins-deployment.yaml
         dest: /tmp/jenkins-deployment.yaml
+        mode: '0644'
 
     - name: Copy Jenkins PVC manifest
       ansible.builtin.copy:
         src: jenkins-pvc.yaml
         dest: /tmp/jenkins-pvc.yaml
+        mode: '0644'
 
     - name: Apply Jenkins Deployment manifest
       ansible.builtin.command:
@@ -42,7 +65,20 @@
         cmd: kubectl apply -f /tmp/jenkins-pvc.yaml
       changed_when: true
 
+    - name: Wait for Jenkins pod to be ready
+      ansible.builtin.command:
+        cmd: kubectl wait --for=condition=available --timeout=600s deployment/jenkins -n default
+      changed_when: false
+
+    - name: Verify Jenkins installation
+      ansible.builtin.command:
+        cmd: kubectl get pods -n default
+      register: jenkins_pods
+    - debug:
+        msg: "{{ jenkins_pods.stdout }}"
+
     - name: Expose Jenkins service
       ansible.builtin.command:
         cmd: kubectl expose deployment jenkins --type=NodePort --name=jenkins-service --port=8080 --target-port=8080
       changed_when: true
+
