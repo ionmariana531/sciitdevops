@@ -6,30 +6,26 @@
     ansible_python_interpreter: /usr/bin/python3
   tasks:
 
-    # 📌 Instalează pip dacă nu este deja instalat
-    - name: Ensure pip is installed
+    # 📌 Install pipx if not already installed
+    - name: Ensure pipx is installed
       ansible.builtin.package:
-        name: python3-pip
+        name: pipx
         state: present
 
-    # 📌 Instalează biblioteca Kubernetes pe nodul remote
-    - name: Install kubernetes Python package
-      ansible.builtin.pip:
-        name: kubernetes
-        state: present
-
-    # 📌 Verifică contextul Kubernetes
-    - name: Check Kubernetes Context
+    # 📌 Install Kubernetes Python package using pipx (isolated environment)
+    - name: Install kubernetes Python package using pipx
       ansible.builtin.command:
-        argv:
-          - kubectl
-          - config
-          - current-context
+        cmd: pipx install kubernetes
+      register: pipx_install_k8s
+
+    - name: Verify Kubernetes installation with pipx
+      ansible.builtin.command:
+        cmd: pipx run kubectl config current-context
       register: k8s_context
     - debug:
         msg: "Current Kubernetes context: {{ k8s_context.stdout }}"
 
-    # 📌 Instalare ArgoCD
+    # 📌 Install ArgoCD
     - name: Download ArgoCD manifests
       ansible.builtin.get_url:
         url: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
@@ -40,18 +36,6 @@
       kubernetes.core.k8s:
         state: present
         src: ~/metrics-server.yaml
-
-    # - name: Wait for ArgoCD pods to be ready
-    #   ansible.builtin.command:
-    #     argv:
-    #       - kubectl
-    #       - wait
-    #       - --for=condition=available
-    #       - --timeout=600s
-    #       - deployment/argocd-server
-    #       - -n
-    #       - argocd
-    #   changed_when: false
 
     - name: Verify ArgoCD installation
       ansible.builtin.command:
@@ -71,7 +55,7 @@
       poll: 0
       changed_when: true
 
-    # 📌 Instalare Jenkins
+    # 📌 Install Jenkins
     - name: Copy Jenkins Deployment manifest
       ansible.builtin.copy:
         src: jenkins-deployment.yaml
@@ -97,18 +81,6 @@
       kubernetes.core.k8s:
         state: present
         src: ~/metrics-server.yaml
-
-    # - name: Wait for Jenkins pod to be ready
-    #   ansible.builtin.command:
-    #     argv:
-    #       - kubectl
-    #       - wait
-    #       - --for=condition=available
-    #       - --timeout=600s
-    #       - deployment/jenkins
-    #       - -n
-    #       - default
-    #   changed_when: false
 
     - name: Verify Jenkins installation
       ansible.builtin.command:
