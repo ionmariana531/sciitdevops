@@ -81,13 +81,17 @@ jobs:
           fi
           echo "✅ SSH connection successful!"
 
-      # Install Ansible
+      # Install Ansible and dependencies
       - name: Install Ansible and dependencies
         run: |
           sudo apt update && sudo apt install -y ansible python3-pip
-          python3 -m pip install kubernetes
+          python3 -m pip install openshift pyyaml kubernetes
           ansible-galaxy collection install kubernetes.core
           ansible --version
+
+      # Check the dependencies
+      - name: Verify Python dependencies
+        run: python3 -c "import kubernetes, openshift, yaml; print('✅ Required Python modules are installed!')"
 
       # Run Ansible Playbook for installing K3s, Docker, GIT, and SSH-SETUP
       - name: Run Ansible Playbook
