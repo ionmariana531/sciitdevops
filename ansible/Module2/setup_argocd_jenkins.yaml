@@ -1,8 +1,10 @@
 ---
-- name: Install ArgoCD and Jenkins on k3s
-  hosts: master
-  become: yes
-  tasks:
+    - name: Install ArgoCD and Jenkins on k3s
+      hosts: master
+      become: yes
+      vars:
+        ansible_python_interpreter: /usr/bin/python3
+      tasks:
   
     # 📌 Verifică contextul Kubernetes
     - name: Check Kubernetes Context
