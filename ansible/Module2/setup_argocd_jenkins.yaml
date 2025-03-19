@@ -6,21 +6,16 @@
     ansible_python_interpreter: /usr/bin/python3
   tasks:
 
-    # 📌 Install pipx if not already installed
-    - name: Ensure pipx is installed
+    # 📌 Install Kubernetes Python package using apt
+    - name: Install kubernetes Python package using apt
       ansible.builtin.package:
-        name: pipx
+        name: python3-kubernetes
         state: present
 
-    # 📌 Install Kubernetes Python package using pipx (isolated environment)
-    - name: Install kubernetes Python package using pipx
+    # 📌 Verify Kubernetes installation
+    - name: Verify Kubernetes installation
       ansible.builtin.command:
-        cmd: pipx install kubernetes
-      register: pipx_install_k8s
-
-    - name: Verify Kubernetes installation with pipx
-      ansible.builtin.command:
-        cmd: pipx run kubectl config current-context
+        cmd: kubectl config current-context
       register: k8s_context
     - debug:
         msg: "Current Kubernetes context: {{ k8s_context.stdout }}"
