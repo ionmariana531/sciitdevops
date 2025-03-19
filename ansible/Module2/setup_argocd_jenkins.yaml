@@ -31,6 +31,7 @@
       kubernetes.core.k8s:
         state: present
         src: ~/metrics-server.yaml
+        kubeconfig: /home/ubuntu/.kube/config
 
     - name: Verify ArgoCD installation
       ansible.builtin.command:
