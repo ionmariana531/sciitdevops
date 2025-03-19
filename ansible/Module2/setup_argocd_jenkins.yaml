@@ -1,17 +1,20 @@
 ---
-    - name: Install ArgoCD and Jenkins on k3s
-      hosts: master
-      become: yes
-      vars:
-        ansible_python_interpreter: /usr/bin/python3
-      tasks:
-  
+- name: Install ArgoCD and Jenkins on k3s
+  hosts: master
+  become: yes
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  tasks:
+
     # 📌 Verifică contextul Kubernetes
     - name: Check Kubernetes Context
       ansible.builtin.command:
-        cmd: kubectl config current-context
+        argv:
+          - kubectl
+          - config
+          - current-context
       register: k8s_context
-    - debug: 
+    - debug:
         msg: "Current Kubernetes context: {{ k8s_context.stdout }}"
 
     # 📌 Instalare ArgoCD
@@ -26,14 +29,26 @@
         state: present
         src: ~/metrics-server.yaml
 
-        # - name: Wait for ArgoCD pods to be ready
-        #ansible.builtin.command:
-        #cmd: kubectl wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd
-        #changed_when: false
+    # - name: Wait for ArgoCD pods to be ready
+    #   ansible.builtin.command:
+    #     argv:
+    #       - kubectl
+    #       - wait
+    #       - --for=condition=available
+    #       - --timeout=600s
+    #       - deployment/argocd-server
+    #       - -n
+    #       - argocd
+    #   changed_when: false
 
     - name: Verify ArgoCD installation
       ansible.builtin.command:
-        cmd: kubectl get pods -n argocd
+        argv:
+          - kubectl
+          - get
+          - pods
+          - -n
+          - argocd
       register: argocd_pods
     - debug:
         msg: "{{ argocd_pods.stdout }}"
@@ -59,7 +74,11 @@
 
     - name: Apply Jenkins Deployment manifest
       ansible.builtin.command:
-        cmd: kubectl apply -f /tmp/jenkins-deployment.yaml
+        argv:
+          - kubectl
+          - apply
+          - -f
+          - /tmp/jenkins-deployment.yaml
       changed_when: true
 
     - name: Apply metrics-server manifest to the cluster.
@@ -67,20 +86,39 @@
         state: present
         src: ~/metrics-server.yaml
 
-          # - name: Wait for Jenkins pod to be ready
-          #ansible.builtin.command:
-          #cmd: kubectl wait --for=condition=available --timeout=600s deployment/jenkins -n default
-          #changed_when: false
+    # - name: Wait for Jenkins pod to be ready
+    #   ansible.builtin.command:
+    #     argv:
+    #       - kubectl
+    #       - wait
+    #       - --for=condition=available
+    #       - --timeout=600s
+    #       - deployment/jenkins
+    #       - -n
+    #       - default
+    #   changed_when: false
 
     - name: Verify Jenkins installation
       ansible.builtin.command:
-        cmd: kubectl get pods -n default
+        argv:
+          - kubectl
+          - get
+          - pods
+          - -n
+          - default
       register: jenkins_pods
     - debug:
         msg: "{{ jenkins_pods.stdout }}"
 
     - name: Expose Jenkins service
       ansible.builtin.command:
-        cmd: kubectl expose deployment jenkins --type=NodePort --name=jenkins-service --port=8080 --target-port=8080
+        argv:
+          - kubectl
+          - expose
+          - deployment
+          - jenkins
+          - --type=NodePort
+          - --name=jenkins-service
+          - --port=8080
+          - --target-port=8080
       changed_when: true
-
