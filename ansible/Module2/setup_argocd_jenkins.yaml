@@ -6,6 +6,12 @@
     ansible_python_interpreter: /usr/bin/python3
   tasks:
 
+    # 📌 Instalează biblioteca Kubernetes pe nodul remote
+    - name: Install kubernetes Python package
+      ansible.builtin.pip:
+        name: kubernetes
+        state: present
+
     # 📌 Verifică contextul Kubernetes
     - name: Check Kubernetes Context
       ansible.builtin.command:
@@ -122,3 +128,4 @@
           - --port=8080
           - --target-port=8080
       changed_when: true
+
