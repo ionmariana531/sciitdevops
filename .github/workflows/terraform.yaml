@@ -51,12 +51,6 @@ jobs:
           #  echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
           # done
 
-      # Copy inventory.ini to EC2 instance
-      - name: Copy inventory.ini to EC2
-        run: |
-          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
-
       # Add SSH Key from GitHub Secrets
       - name: Add SSH Key
         run: |
@@ -86,6 +80,14 @@ jobs:
             exit 1
           fi
           echo "✅ SSH connection successful!"
+
+      # Copy inventory.ini to EC2 after successful SSH connection
+      - name: Copy inventory.ini to EC2
+        run: |
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          echo "Copying inventory.ini to $INSTANCE_IP..."
+          scp -i ~/.ssh/aws-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
+          echo "✅ inventory.ini successfully copied to EC2"
 
       # Install Python 3.9+, Ansible, and dependencies
       - name: Install Ansible and dependencies
