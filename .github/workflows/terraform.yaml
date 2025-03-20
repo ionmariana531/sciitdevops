@@ -51,6 +51,12 @@ jobs:
           #  echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
           # done
 
+      # Copy inventory.ini to EC2 instance
+      - name: Copy inventory.ini to EC2
+        run: |
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
+
       # Add SSH Key from GitHub Secrets
       - name: Add SSH Key
         run: |
