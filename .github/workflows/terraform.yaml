@@ -11,17 +11,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repo
       - uses: actions/checkout@v3
 
-      # Configure AWS credentials
       - uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: '${{ secrets.AWS_ACCESS_KEY_ID }}'
           aws-secret-access-key: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
           aws-region: 'eu-west-1'
 
-      # Terraform Setup
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -33,7 +30,6 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -auto-approve
 
-      # Generate Ansible Inventory File based on Terraform output
       - name: Generate Ansible Inventory
         run: |
           echo "[master]" > ansible/inventory.ini
@@ -41,7 +37,6 @@ jobs:
           MASTER_IP=$(echo "$INSTANCE_IPS" | jq -r '.[0]')
           echo "$MASTER_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/app-ssh-key.pem" >> ansible/inventory.ini
 
-      # Add SSH Keys from GitHub Secrets
       - name: Add SSH Keys
         run: |
           mkdir -p ~/.ssh
@@ -50,58 +45,32 @@ jobs:
           chmod 600 ~/.ssh/app-ssh-key.pem
           chmod 644 ~/.ssh/app-ssh-key.pub
 
-      # Test SSH connection (with retries and increasing wait time)
-      - name: Test SSH connection to EC2 (wait for stabilization)
+      - name: Configure SSH on EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          echo "Trying to SSH into $INSTANCE_IP, waiting for stabilization..."
-          
-          RETRIES=10
-          SUCCESS=0
-          BASE_WAIT_TIME=10  # Starting wait time (seconds)
-          
-          for i in $(seq 1 $RETRIES); do
-            echo "Attempt $i..."
-            if ssh -vvv -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP; then
-              SUCCESS=1
-              echo "✅ SSH connection established successfully!"
-              break
-            else
-              WAIT_TIME=$((BASE_WAIT_TIME * i))  # Increase wait time on each attempt
-              echo "❌ Attempt $i failed. Retrying in $WAIT_TIME seconds..."
-              sleep $WAIT_TIME
-            fi
-          done
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
+          sudo sed -i 's/^#PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+          echo -e "\nHostKey /etc/ssh/ssh_host_rsa_key\nHostKey /etc/ssh/ssh_host_ecdsa_key\nHostKey /etc/ssh/ssh_host_ed25519_key" | sudo tee -a /etc/ssh/sshd_config
+          sudo systemctl restart ssh
+          ls -l /etc/ssh/ssh_host_* || (sudo ssh-keygen -A && sudo systemctl restart ssh)
+          EOF
 
-          if [ $SUCCESS -eq 0 ]; then
-            echo "❌ SSH connection failed after $RETRIES attempts."
-            exit 1
-          fi
+      - name: Test SSH Connection
+        run: |
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "exit"
 
       - name: Add EC2 instance to known_hosts
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          echo "Adding $INSTANCE_IP to known_hosts on EC2..."
-
-          # Verify the instance is reachable
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "exit" || {
-            echo "❌ Failed to reach EC2 instance $INSTANCE_IP!"
-            exit 1
-          }
-
-          # Add the instance to known_hosts
           ssh-keyscan -H $INSTANCE_IP >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
-          echo "✅ EC2 instance added to known_hosts!"
 
-      # Copy inventory.ini to EC2
       - name: Copy inventory.ini to EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
-          echo "✅ inventory.ini successfully copied to EC2"
 
-      # Install Python 3.9+, Ansible and dependencies
       - name: Install Ansible and dependencies
         run: |
           sudo apt update && sudo apt install -y software-properties-common
@@ -112,19 +81,15 @@ jobs:
           python3.9 -m pip install --upgrade pip
           python3.9 -m pip install openshift pyyaml kubernetes jsonpatch
           ansible-galaxy collection install kubernetes.core
-          ansible --version
 
-      # Verify pip installation
       - name: Verify pip installation
         run: python3.9 -m pip --version
 
-      # Run Ansible playbooks
       - name: Install Ansible collections
         run: ansible-galaxy collection install -r ansible/Module2/collection-requirements.yaml
-      - name: Run Ansible Playbook
-        run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
-      - name: Run Ansible Playbook to configure k3s cluster
-        run: ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
-      - name: Run Ansible Playbook for ArgoCD & Jenkins
-        run: ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv
-
+      
+      - name: Run Ansible Playbooks
+        run: |
+          ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
+          ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
+          ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv
