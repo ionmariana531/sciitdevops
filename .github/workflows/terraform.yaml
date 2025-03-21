@@ -83,8 +83,15 @@ jobs:
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           echo "Adding $INSTANCE_IP to known_hosts on EC2..."
+    
+          # First, ensure the .ssh directory exists on EC2
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP \
-            "mkdir -p ~/.ssh && ssh-keyscan -H $INSTANCE_IP >> ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts"
+            "mkdir -p ~/.ssh"
+    
+          # Then, add the instance to known_hosts on EC2
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP \
+            "ssh-keyscan -H $INSTANCE_IP >> ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts"
+    
           echo "✅ EC2 instance added to known_hosts on EC2!"
 
       # Copy inventory.ini to EC2
