@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - add-terraform-github-actions-Mariana-fe
-
   workflow_dispatch:
 
 jobs:
@@ -51,34 +50,26 @@ jobs:
           chmod 600 ~/.ssh/app-ssh-key.pem
           chmod 644 ~/.ssh/app-ssh-key.pub
 
-      # Debug SSH Key
-      - name: Debug SSH Key
-        run: |
-          echo "Listing .ssh directory:"
-          ls -l ~/.ssh/
-          echo "Public Key:"
-          cat ~/.ssh/app-ssh-key.pub
-          echo "Private Key (first 5 lines only for security):"
-          head -n 5 ~/.ssh/app-ssh-key.pem
-
-      # Test SSH connection (with retries)
-      - name: Test SSH connection
+      # Test SSH connection (with retries and increasing wait time)
+      - name: Test SSH connection to EC2 (wait for stabilization)
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          echo "Adding $INSTANCE_IP to known_hosts..."
-          ssh-keyscan -H $INSTANCE_IP >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
-          echo "Trying to SSH into $INSTANCE_IP"
-          RETRIES=5
+          echo "Trying to SSH into $INSTANCE_IP, waiting for stabilization..."
+          
+          RETRIES=10
           SUCCESS=0
+          BASE_WAIT_TIME=10  # Starting wait time (seconds)
+          
           for i in $(seq 1 $RETRIES); do
+            echo "Attempt $i..."
             if ssh -vvv -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP; then
               SUCCESS=1
+              echo "✅ SSH connection established successfully!"
               break
             else
-              echo "❌ Attempt $i failed. Retrying in $((i * 20)) seconds..."
-              sleep $((i * 20))
+              WAIT_TIME=$((BASE_WAIT_TIME * i))  # Increase wait time on each attempt
+              echo "❌ Attempt $i failed. Retrying in $WAIT_TIME seconds..."
+              sleep $WAIT_TIME
             fi
           done
 
@@ -86,16 +77,15 @@ jobs:
             echo "❌ SSH connection failed after $RETRIES attempts."
             exit 1
           fi
-          echo "✅ SSH connection successful!"
 
-      # Add known_hosts on EC2
-      - name: Add known_hosts on EC2
+      # Add EC2 instance to known_hosts
+      - name: Add EC2 instance to known_hosts
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           echo "Adding $INSTANCE_IP to known_hosts on EC2..."
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP \
             "mkdir -p ~/.ssh && ssh-keyscan -H $INSTANCE_IP >> ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts"
-          echo "✅ known_hosts updated on EC2!"
+          echo "✅ EC2 instance added to known_hosts on EC2!"
 
       # Copy inventory.ini to EC2
       - name: Copy inventory.ini to EC2
