@@ -33,9 +33,7 @@
         state: present
         src: ~/metrics-server.yaml
         kubeconfig: /home/ubuntu/.kube/config
-        verify_ssl: no
-        vars:
-          ansible_ssh_private_key_file: /home/runner/.ssh/app-ssh-key.pem
+        validate_certs: no 
 
     - name: Verify ArgoCD installation
       ansible.builtin.command:
