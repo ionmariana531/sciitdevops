@@ -100,14 +100,30 @@ jobs:
 
       - name: Install Ansible and dependencies
         run: |
-          sudo apt update && sudo apt install -y software-properties-common
+          # Actualizează lista de pachete și instalează software-properties-common și curl
+          sudo apt update && sudo apt install -y software-properties-common curl
+
+          # Adaugă depozitul PPA pentru Python 3.9 (dacă nu e deja adăugat) și actualizează lista de pachete
           sudo add-apt-repository -y ppa:deadsnakes/ppa
           sudo apt update
+
+          # Instalează Python 3.9 și Ansible
           sudo apt install -y python3.9 python3.9-venv python3.9-dev ansible
+
+          # Instalează pip pentru Python 3.9
           curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
+
+          # Actualizează pip la cea mai recentă versiune
           python3.9 -m pip install --upgrade pip
+
+          # Instalează pachetele Python necesare pentru Kubernetes și altele
           python3.9 -m pip install openshift pyyaml kubernetes jsonpatch
+
+          # Instalează colecția Ansible pentru Kubernetes
           ansible-galaxy collection install kubernetes.core
+
+          # Verifică versiunea de Ansible pentru a te asigura că a fost instalat corect
+          ansible --version
 
       - name: Verify pip installation
         run: python3.9 -m pip --version
