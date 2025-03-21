@@ -45,6 +45,33 @@ jobs:
           chmod 600 ~/.ssh/app-ssh-key.pem
           chmod 644 ~/.ssh/app-ssh-key.pub
 
+      # Adăugăm pasul de verificare a disponibilității SSH cu backoff exponential
+      - name: Wait for SSH to become available
+        run: |
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          WAIT_TIME=5  # Timpul inițial de așteptare în secunde
+          MAX_WAIT_TIME=60  # Timpul maxim de așteptare (în secunde)
+          RETRIES=0
+
+          # Așteaptă până când SSH devine disponibil
+          while ! nc -zv $INSTANCE_IP 22 && [ $RETRIES -lt 10 ]; do
+            echo "Waiting for SSH to become available... Retry $((RETRIES+1))"
+            sleep $WAIT_TIME
+            RETRIES=$((RETRIES + 1))
+            WAIT_TIME=$((WAIT_TIME + 5))  # Mărim timpul de așteptare cu 5 secunde la fiecare încercare
+            if [ $WAIT_TIME -gt $MAX_WAIT_TIME ]; then
+              WAIT_TIME=$MAX_WAIT_TIME  # Limităm timpul de așteptare la MAX_WAIT_TIME
+            fi
+          done
+
+          if [ $RETRIES -ge 10 ]; then
+            echo "SSH did not become available after 10 attempts."
+            exit 1  # Dacă SSH nu devine disponibil, ieșim cu eroare
+          fi
+
+          echo "SSH is now available on $INSTANCE_IP"
+
+      # Mutăm configurarea SSH după ce am confirmat că SSH este disponibil
       - name: Configure SSH on EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
@@ -54,7 +81,7 @@ jobs:
             sudo systemctl restart ssh
             ls -l /etc/ssh/ssh_host_* || (sudo ssh-keygen -A && sudo systemctl restart ssh)
           EOF
-      
+
       - name: Test SSH Connection
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
@@ -87,7 +114,7 @@ jobs:
 
       - name: Install Ansible collections
         run: ansible-galaxy collection install -r ansible/Module2/collection-requirements.yaml
-      
+
       - name: Run Ansible Playbooks
         run: |
           ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
