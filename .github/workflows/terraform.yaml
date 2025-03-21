@@ -38,25 +38,20 @@ jobs:
       - name: Generate Ansible Inventory
         run: |
           echo "[master]" > ansible/inventory.ini
-          # echo "[worker]" >> ansible/inventory.ini
           INSTANCE_IPS=$(terraform output -json instance_ips)
 
           # Extract Master Node IP and add it to the inventory
           MASTER_IP=$(echo "$INSTANCE_IPS" | jq -r '.[0]')
-          echo "$MASTER_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
+          echo "$MASTER_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/app-ssh-key.pem" >> ansible/inventory.ini
 
-          # Extract Worker Node IPs and add them to the inventory
-          # WORKER_IPS=$(echo "$INSTANCE_IPS" | jq -r '.[1:]')
-          # for ip in $WORKER_IPS; do
-          #  echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
-          # done
-
-      # Add SSH Key from GitHub Secrets
-      - name: Add SSH Key
+      # Add SSH Keys from GitHub Secrets
+      - name: Add SSH Keys
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > ~/.ssh/aws-key.pem
-          chmod 600 ~/.ssh/aws-key.pem
+          echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > ~/.ssh/app-ssh-key.pem
+          echo "${{ secrets.AWS_SSH_PUBLIC_KEY }}" > ~/.ssh/app-ssh-key.pub
+          chmod 600 ~/.ssh/app-ssh-key.pem
+          chmod 644 ~/.ssh/app-ssh-key.pub
 
       # Test SSH connection (with retries)
       - name: Test SSH connection
@@ -66,12 +61,12 @@ jobs:
           RETRIES=5
           SUCCESS=0
           for i in $(seq 1 $RETRIES); do
-            if ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/aws-key.pem ubuntu@$INSTANCE_IP; then
+            if ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP; then
               SUCCESS=1
               break
             else
               echo "❌ Attempt $i failed. Retrying in $((i * 20)) seconds..."
-              sleep $((i * 20))  # Creștem timpul de așteptare la fiecare încercare
+              sleep $((i * 20))
             fi
           done
 
@@ -86,7 +81,7 @@ jobs:
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           echo "Copying inventory.ini to $INSTANCE_IP..."
-          scp -i ~/.ssh/aws-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
+          scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
           echo "✅ inventory.ini successfully copied to EC2"
 
       # Install Python 3.9+, Ansible, and dependencies
