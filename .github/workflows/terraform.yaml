@@ -73,7 +73,7 @@ jobs:
           RETRIES=5
           SUCCESS=0
           for i in $(seq 1 $RETRIES); do
-            if ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP; then
+            if ssh -vvv -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP; then
               SUCCESS=1
               break
             else
