@@ -53,10 +53,24 @@ jobs:
           chmod 600 ~/.ssh/app-ssh-key.pem
           chmod 644 ~/.ssh/app-ssh-key.pub
 
+      # Debug SSH Key - Verifică dacă cheia este corect adăugată
+      - name: Debug SSH Key
+        run: |
+          echo "Listing .ssh directory:"
+          ls -l ~/.ssh/
+          echo "Public Key:"
+          cat ~/.ssh/app-ssh-key.pub
+          echo "Private Key (first 5 lines only for security):"
+          head -n 5 ~/.ssh/app-ssh-key.pem
+
       # Test SSH connection (with retries)
       - name: Test SSH connection
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          echo "Adding $INSTANCE_IP to known_hosts..."
+          ssh-keyscan -H $INSTANCE_IP >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts  # <== Adaugă această linie
+
           echo "Trying to SSH into $INSTANCE_IP"
           RETRIES=5
           SUCCESS=0
