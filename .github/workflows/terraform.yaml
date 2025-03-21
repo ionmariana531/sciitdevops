@@ -39,8 +39,6 @@ jobs:
         run: |
           echo "[master]" > ansible/inventory.ini
           INSTANCE_IPS=$(terraform output -json instance_ips)
-
-          # Extract Master Node IP and add it to the inventory
           MASTER_IP=$(echo "$INSTANCE_IPS" | jq -r '.[0]')
           echo "$MASTER_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/app-ssh-key.pem" >> ansible/inventory.ini
 
@@ -53,7 +51,7 @@ jobs:
           chmod 600 ~/.ssh/app-ssh-key.pem
           chmod 644 ~/.ssh/app-ssh-key.pub
 
-      # Debug SSH Key - Verifică dacă cheia este corect adăugată
+      # Debug SSH Key
       - name: Debug SSH Key
         run: |
           echo "Listing .ssh directory:"
@@ -69,7 +67,7 @@ jobs:
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           echo "Adding $INSTANCE_IP to known_hosts..."
           ssh-keyscan -H $INSTANCE_IP >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts  # <== Adaugă această linie
+          chmod 644 ~/.ssh/known_hosts
 
           echo "Trying to SSH into $INSTANCE_IP"
           RETRIES=5
@@ -90,11 +88,19 @@ jobs:
           fi
           echo "✅ SSH connection successful!"
 
-      # Copy inventory.ini to EC2 after successful SSH connection
+      # Add known_hosts on EC2
+      - name: Add known_hosts on EC2
+        run: |
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          echo "Adding $INSTANCE_IP to known_hosts on EC2..."
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP \
+            "mkdir -p ~/.ssh && ssh-keyscan -H $INSTANCE_IP >> ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts"
+          echo "✅ known_hosts updated on EC2!"
+
+      # Copy inventory.ini to EC2
       - name: Copy inventory.ini to EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          echo "Copying inventory.ini to $INSTANCE_IP..."
           scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
           echo "✅ inventory.ini successfully copied to EC2"
 
@@ -105,14 +111,9 @@ jobs:
           sudo add-apt-repository -y ppa:deadsnakes/ppa
           sudo apt update
           sudo apt install -y python3.9 python3.9-venv python3.9-dev ansible
-
-          # Instalează manual pip dacă lipsește
           curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
-
           python3.9 -m pip install --upgrade pip
           python3.9 -m pip install openshift pyyaml kubernetes jsonpatch
-
-          # Instalează colecția Kubernetes pentru Ansible
           ansible-galaxy collection install kubernetes.core
           ansible --version
 
@@ -120,19 +121,13 @@ jobs:
       - name: Verify pip installation
         run: python3.9 -m pip --version
 
-      # Run Ansible playbook for Collections
+      # Run Ansible playbooks
       - name: Install Ansible collections
-        run: |
-          ansible-galaxy collection install -r ansible/Module2/collection-requirements.yaml
-
-      # Run Ansible Playbook for installing K3s, Docker, GIT, and SSH-SETUP
+        run: ansible-galaxy collection install -r ansible/Module2/collection-requirements.yaml
       - name: Run Ansible Playbook
         run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
-
-      # Run Ansible Playbook to configure k3s cluster
       - name: Run Ansible Playbook to configure k3s cluster
         run: ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
-
-      # Run Ansible Playbook to deploy ArgoCD and Jenkins
       - name: Run Ansible Playbook for ArgoCD & Jenkins
         run: ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv
+
