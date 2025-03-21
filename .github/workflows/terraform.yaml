@@ -45,7 +45,6 @@ jobs:
           chmod 600 ~/.ssh/app-ssh-key.pem
           chmod 644 ~/.ssh/app-ssh-key.pub
 
-      # Adăugăm pasul de verificare a disponibilității SSH cu backoff exponential
       - name: Wait for SSH to become available
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
@@ -71,7 +70,6 @@ jobs:
 
           echo "SSH is now available on $INSTANCE_IP"
 
-      # Mutăm configurarea SSH după ce am confirmat că SSH este disponibil
       - name: Configure SSH on EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
@@ -98,31 +96,22 @@ jobs:
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
 
+      - name: Create ansible.cfg for proper SSH setup
+        run: |
+          mkdir -p ~/.ansible
+          echo "[defaults]" > ~/.ansible/ansible.cfg
+          echo "scp_if_ssh = True" >> ~/.ansible/ansible.cfg
+
       - name: Install Ansible and dependencies
         run: |
-          # Actualizează lista de pachete și instalează software-properties-common și curl
           sudo apt update && sudo apt install -y software-properties-common curl
-
-          # Adaugă depozitul PPA pentru Python 3.9 (dacă nu e deja adăugat) și actualizează lista de pachete
           sudo add-apt-repository -y ppa:deadsnakes/ppa
           sudo apt update
-
-          # Instalează Python 3.9 și Ansible
           sudo apt install -y python3.9 python3.9-venv python3.9-dev ansible
-
-          # Instalează pip pentru Python 3.9
           curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
-
-          # Actualizează pip la cea mai recentă versiune
           python3.9 -m pip install --upgrade pip
-
-          # Instalează pachetele Python necesare pentru Kubernetes și altele
           python3.9 -m pip install openshift pyyaml kubernetes jsonpatch
-
-          # Instalează colecția Ansible pentru Kubernetes
           ansible-galaxy collection install kubernetes.core
-
-          # Verifică versiunea de Ansible pentru a te asigura că a fost instalat corect
           ansible --version
 
       - name: Verify pip installation
