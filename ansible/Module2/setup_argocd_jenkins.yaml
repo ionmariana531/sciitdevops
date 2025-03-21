@@ -27,6 +27,7 @@
         dest: /tmp/argocd-install.yaml
         mode: '0644'
 
+    # Apply metrics-server manifest to the cluster (inclusiv dacă se află în altă locație)
     - name: Apply metrics-server manifest to the cluster.
       kubernetes.core.k8s:
         state: present
@@ -73,10 +74,12 @@
           - /tmp/jenkins-deployment.yaml
       changed_when: true
 
-    - name: Apply metrics-server manifest to the cluster.
+    # Apply metrics-server manifest to the cluster (dacă nu a fost deja aplicat)
+    - name: Apply metrics-server manifest to the cluster again if needed.
       kubernetes.core.k8s:
         state: present
         src: ~/metrics-server.yaml
+        kubeconfig: /home/ubuntu/.kube/config
 
     - name: Verify Jenkins installation
       ansible.builtin.command:
@@ -102,4 +105,3 @@
           - --port=8080
           - --target-port=8080
       changed_when: true
-
