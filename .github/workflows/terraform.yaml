@@ -101,25 +101,38 @@ jobs:
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "exit"
 
-      - name: Configure known_hosts and transfer files to EC2
+      - name: Configure SSH, known_hosts, and transfer files to EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
 
-          # 1. Crează ~/.ssh/known_hosts dacă nu există și adaugă fingerprint-ul EC2
+          # 1. Crează ~/.ssh/known_hosts pe GitHub Runner și adaugă fingerprint-ul EC2
           mkdir -p ~/.ssh
-          ssh-keyscan -H $INSTANCE_IP >> ~/.ssh/known_hosts
+          ssh-keyscan -H $INSTANCE_IP | tee -a ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
           # 2. Transferă inventory.ini pe instanța EC2
           scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
 
-          # 3. Configurează ansible.cfg local
+          # 3. Crează ansible.cfg pe GitHub Runner
           mkdir -p ~/.ansible
           echo "[defaults]" > ~/.ansible.cfg
           echo "inventory = ~/ansible/inventory.ini" >> ~/.ansible.cfg
           echo "host_key_checking = False" >> ~/.ansible.cfg
           echo "scp_if_ssh = True" >> ~/.ansible.cfg
           chmod 644 ~/.ansible.cfg
+
+          # 4. Transferă ansible.cfg pe instanța EC2
+          scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ~/.ansible.cfg ubuntu@$INSTANCE_IP:/home/ubuntu/ansible.cfg
+
+          # 5. Configurează known_hosts și ansible.cfg pe EC2
+          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << EOF
+            mkdir -p ~/.ssh ~/.ansible
+            touch ~/.ssh/known_hosts
+            ssh-keyscan -H $INSTANCE_IP | tee -a ~/.ssh/known_hosts
+            chmod 644 ~/.ssh/known_hosts
+            mv /home/ubuntu/ansible.cfg ~/.ansible/ansible.cfg
+            chmod 644 ~/.ansible/ansible.cfg
+          EOF
 
           # - name: Install dependencies
           #run: |
