@@ -79,11 +79,22 @@ jobs:
           #  sudo systemctl restart ssh
           #  ls -l /etc/ssh/ssh_host_* || (sudo ssh-keygen -A && sudo systemctl restart ssh)
           #EOF
-      - name: Copy private SSH key to EC2
+      - name: Copy SSH keys (private & public) to EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+
+          # Copiază cheia privată și publică pe EC2
           scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP:/home/ubuntu/.ssh/app-ssh-key.pem
-          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "chmod 600 /home/ubuntu/.ssh/app-ssh-key.pem"
+          scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ~/.ssh/app-ssh-key.pub ubuntu@$INSTANCE_IP:/home/ubuntu/.ssh/app-ssh-key.pub
+
+          # Setează permisiuni corecte și adaugă cheia publică la authorized_keys
+          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << EOF
+            chmod 600 /home/ubuntu/.ssh/app-ssh-key.pem
+            chmod 644 /home/ubuntu/.ssh/app-ssh-key.pub
+            cat /home/ubuntu/.ssh/app-ssh-key.pub >> /home/ubuntu/.ssh/authorized_keys
+            chmod 600 /home/ubuntu/.ssh/authorized_keys
+            echo "SSH keys transferred and configured successfully."
+          EOF
 
       - name: Test SSH connection (Skip host validation)
         run: |
