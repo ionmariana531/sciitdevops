@@ -70,94 +70,99 @@ jobs:
 
           echo "SSH is now available on $INSTANCE_IP"
 
-      - name: Configure SSH on EC2
+          #- name: Configure SSH on EC2
+          #run: |
+          #INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          #ssh -t -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
+          #  sudo sed -i 's/^#PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+          #  echo -e "\nHostKey /etc/ssh/ssh_host_rsa_key\nHostKey /etc/ssh/ssh_host_ecdsa_key\nHostKey /etc/ssh/ssh_host_ed25519_key" | sudo tee -a /etc/ssh/sshd_config
+          #  sudo systemctl restart ssh
+          #  ls -l /etc/ssh/ssh_host_* || (sudo ssh-keygen -A && sudo systemctl restart ssh)
+          #EOF
+      - name: Copy private SSH key to EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          ssh -t -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
-            sudo sed -i 's/^#PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
-            echo -e "\nHostKey /etc/ssh/ssh_host_rsa_key\nHostKey /etc/ssh/ssh_host_ecdsa_key\nHostKey /etc/ssh/ssh_host_ed25519_key" | sudo tee -a /etc/ssh/sshd_config
-            sudo systemctl restart ssh
-            ls -l /etc/ssh/ssh_host_* || (sudo ssh-keygen -A && sudo systemctl restart ssh)
-          EOF
+          scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP:/home/ubuntu/.ssh/app-ssh-key.pem
+          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "chmod 600 /home/ubuntu/.ssh/app-ssh-key.pem"
 
       - name: Test SSH connection (Skip host validation)
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "exit"
 
-      - name: Run SSH Debug Playbook
-        run: |
-          ansible-playbook -i ansible/inventory.ini ansible/debug_ssh_ansible.yaml -vvv
+          # - name: Run SSH Debug Playbook
+          #run: |
+          #ansible-playbook -i ansible/inventory.ini ansible/debug_ssh_ansible.yaml -vvv
 
-      - name: Check if known_hosts exists and create if necessary
-        run: |
-          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
-            if [ ! -f ~/.ssh/known_hosts ]; then
-              touch ~/.ssh/known_hosts
-            fi
-          EOF
+          #- name: Check if known_hosts exists and create if necessary
+          #run: |
+          #INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          #ssh -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
+          #  if [ ! -f ~/.ssh/known_hosts ]; then
+          #    touch ~/.ssh/known_hosts
+          #  fi
+          #EOF
 
-      - name: Add EC2 instance to known_hosts using EC2 Metadata Service
-        run: |
-          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          # - name: Add EC2 instance to known_hosts using EC2 Metadata Service
+          #run: |
+          #INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           # Obține cheia publică SSH din EC2 Metadata Service
-          SSH_KEY=$(curl -s http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key)
+          #SSH_KEY=$(curl -s http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key)
           # Adaugă cheia publică la known_hosts
-          echo "$INSTANCE_IP $SSH_KEY" >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
+          #echo "$INSTANCE_IP $SSH_KEY" >> ~/.ssh/known_hosts
+          #chmod 644 ~/.ssh/known_hosts
 
-      - name: Copy inventory.ini to EC2
-        run: |
-          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
+          # - name: Copy inventory.ini to EC2
+          #run: |
+          #INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          #scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
 
-      - name: Create ansible.cfg for proper SSH setup
-        run: |
-          mkdir -p ~/.ansible
-          echo "[defaults]" > ~/.ansible/ansible.cfg
-          echo "scp_if_ssh = True" >> ~/.ansible/ansible.cfg
+          #- name: Create ansible.cfg for proper SSH setup
+          #run: |
+          #mkdir -p ~/.ansible
+          #echo "[defaults]" > ~/.ansible/ansible.cfg
+          #echo "scp_if_ssh = True" >> ~/.ansible/ansible.cfg
 
-      - name: Install dependencies
-        run: |
+          # - name: Install dependencies
+          #run: |
           # Actualizează pachetele și instalează dependențele necesare
-          sudo apt update && sudo apt install -y software-properties-common curl
+          #sudo apt update && sudo apt install -y software-properties-common curl
 
           # Adaugă repo-ul pentru Python 3.9
-          sudo add-apt-repository -y ppa:deadsnakes/ppa
-          sudo apt update
+          #sudo add-apt-repository -y ppa:deadsnakes/ppa
+          #sudo apt update
 
           # Instalează Python 3.9 și dependențele necesare pentru Ansible
-          sudo apt install -y python3.9 python3.9-venv python3.9-dev
+          #sudo apt install -y python3.9 python3.9-venv python3.9-dev
 
           # Instalează pip pentru Python 3.9
-          curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
-          python3.9 -m pip install --upgrade pip
+          #curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
+          #python3.9 -m pip install --upgrade pip
 
           # Instalează pachete Python necesare
-          python3.9 -m pip install openshift pyyaml kubernetes jsonpatch
+          #python3.9 -m pip install openshift pyyaml kubernetes jsonpatch
 
-      - name: Install Ansible
-        run: |
+          #- name: Install Ansible
+          #run: |
           # Instalează Ansible
-          sudo apt install -y ansible
+          #sudo apt install -y ansible
 
           # Verifică versiunea Ansible
-          ansible --version
+          #ansible --version
 
-      - name: Install Ansible collections
-        run: |
+          #- name: Install Ansible collections
+          #run: |
           # Instalează colecțiile Ansible necesare
-          ansible-galaxy collection install kubernetes.core
+          #ansible-galaxy collection install kubernetes.core
 
-      - name: Verify pip installation
-        run: python3.9 -m pip --version
+          #- name: Verify pip installation
+          #run: python3.9 -m pip --version
 
-      - name: Install Ansible collections
-        run: ansible-galaxy collection install -r ansible/Module2/collection-requirements.yaml
+          #- name: Install Ansible collections
+          #run: ansible-galaxy collection install -r ansible/Module2/collection-requirements.yaml
 
-      - name: Run Ansible Playbooks
-        run: |
-          ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
-          ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
-          ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv
+          #- name: Run Ansible Playbooks
+          #run: |
+          #ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
+          #ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
+          #ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv
