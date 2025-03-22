@@ -85,6 +85,10 @@ jobs:
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "exit"
 
+      - name: Run SSH Debug Playbook
+        run: |
+          ansible-playbook -i ansible/inventory.ini ansible/debug_ssh.yaml -vvv
+
       - name: Add EC2 instance to known_hosts
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
