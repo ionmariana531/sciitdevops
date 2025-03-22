@@ -98,10 +98,13 @@ jobs:
             fi
           EOF
 
-      - name: Add EC2 instance to known_hosts
+      - name: Add EC2 instance to known_hosts using EC2 Metadata Service
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          ssh-keyscan -H $INSTANCE_IP >> ~/.ssh/known_hosts
+          # Obține cheia publică SSH din EC2 Metadata Service
+          SSH_KEY=$(curl -s http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key)
+          # Adaugă cheia publică la known_hosts
+          echo "$INSTANCE_IP $SSH_KEY" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
       - name: Copy inventory.ini to EC2
