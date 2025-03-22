@@ -89,6 +89,15 @@ jobs:
         run: |
           ansible-playbook -i ansible/inventory.ini ansible/debug_ssh_ansible.yaml -vvv
 
+      - name: Check if known_hosts exists and create if necessary
+        run: |
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
+            if [ ! -f ~/.ssh/known_hosts ]; then
+              touch ~/.ssh/known_hosts
+            fi
+          EOF
+
       - name: Add EC2 instance to known_hosts
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
@@ -106,17 +115,37 @@ jobs:
           echo "[defaults]" > ~/.ansible/ansible.cfg
           echo "scp_if_ssh = True" >> ~/.ansible/ansible.cfg
 
-      - name: Install Ansible and dependencies
+      - name: Install dependencies
         run: |
+          # Actualizează pachetele și instalează dependențele necesare
           sudo apt update && sudo apt install -y software-properties-common curl
+
+          # Adaugă repo-ul pentru Python 3.9
           sudo add-apt-repository -y ppa:deadsnakes/ppa
           sudo apt update
-          sudo apt install -y python3.9 python3.9-venv python3.9-dev ansible
+
+          # Instalează Python 3.9 și dependențele necesare pentru Ansible
+          sudo apt install -y python3.9 python3.9-venv python3.9-dev
+
+          # Instalează pip pentru Python 3.9
           curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
           python3.9 -m pip install --upgrade pip
+
+          # Instalează pachete Python necesare
           python3.9 -m pip install openshift pyyaml kubernetes jsonpatch
-          ansible-galaxy collection install kubernetes.core
+
+      - name: Install Ansible
+        run: |
+          # Instalează Ansible
+          sudo apt install -y ansible
+
+          # Verifică versiunea Ansible
           ansible --version
+
+      - name: Install Ansible collections
+        run: |
+          # Instalează colecțiile Ansible necesare
+          ansible-galaxy collection install kubernetes.core
 
       - name: Verify pip installation
         run: python3.9 -m pip --version
