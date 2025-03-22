@@ -80,10 +80,10 @@ jobs:
             ls -l /etc/ssh/ssh_host_* || (sudo ssh-keygen -A && sudo systemctl restart ssh)
           EOF
 
-      - name: Test SSH Connection
+      - name: Test SSH connection (Skip host validation)
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "exit"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "exit"
 
       - name: Run SSH Debug Playbook
         run: |
