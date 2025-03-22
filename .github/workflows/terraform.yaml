@@ -87,7 +87,7 @@ jobs:
 
       - name: Run SSH Debug Playbook
         run: |
-          ansible-playbook -i ansible/inventory.ini ansible/debug_ssh.yaml -vvv
+          ansible-playbook -i ansible/inventory.ini ansible/debug_ssh_ansible.yaml -vvv
 
       - name: Add EC2 instance to known_hosts
         run: |
