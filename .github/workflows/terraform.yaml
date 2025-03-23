@@ -32,10 +32,9 @@ jobs:
 
       - name: Generate Ansible Inventory
         run: |
+          # Vom crea un inventar pentru EC2 care folosește conexiunea locală
           echo "[master]" > ansible/inventory.ini
-          INSTANCE_IPS=$(terraform output -json instance_ips)
-          MASTER_IP=$(echo "$INSTANCE_IPS" | jq -r '.[0]')
-          echo "$MASTER_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/app-ssh-key.pem" >> ansible/inventory.ini
+          echo "localhost ansible_connection=local" >> ansible/inventory.ini
 
       - name: Add SSH Keys
         run: |
@@ -48,47 +47,33 @@ jobs:
       - name: Wait for SSH to become available
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          WAIT_TIME=5  # Timpul inițial de așteptare în secunde
-          MAX_WAIT_TIME=60  # Timpul maxim de așteptare (în secunde)
+          WAIT_TIME=5
+          MAX_WAIT_TIME=60
           RETRIES=0
 
-          # Așteaptă până când SSH devine disponibil
           while ! nc -zv $INSTANCE_IP 22 && [ $RETRIES -lt 10 ]; do
             echo "Waiting for SSH to become available... Retry $((RETRIES+1))"
             sleep $WAIT_TIME
             RETRIES=$((RETRIES + 1))
-            WAIT_TIME=$((WAIT_TIME + 5))  # Mărim timpul de așteptare cu 5 secunde la fiecare încercare
+            WAIT_TIME=$((WAIT_TIME + 5))
             if [ $WAIT_TIME -gt $MAX_WAIT_TIME ]; then
-              WAIT_TIME=$MAX_WAIT_TIME  # Limităm timpul de așteptare la MAX_WAIT_TIME
+              WAIT_TIME=$MAX_WAIT_TIME
             fi
           done
 
           if [ $RETRIES -ge 10 ]; then
             echo "SSH did not become available after 10 attempts."
-            exit 1  # Dacă SSH nu devine disponibil, ieșim cu eroare
+            exit 1
           fi
 
           echo "SSH is now available on $INSTANCE_IP"
 
-          #- name: Configure SSH on EC2
-          #run: |
-          #INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          #ssh -t -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
-          #  sudo sed -i 's/^#PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
-          #  echo -e "\nHostKey /etc/ssh/ssh_host_rsa_key\nHostKey /etc/ssh/ssh_host_ecdsa_key\nHostKey /etc/ssh/ssh_host_ed25519_key" | sudo tee -a /etc/ssh/sshd_config
-          #  sudo systemctl restart ssh
-          #  ls -l /etc/ssh/ssh_host_* || (sudo ssh-keygen -A && sudo systemctl restart ssh)
-          #EOF
       - name: Copy SSH keys (private & public) to EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-
-          # Copiază cheia privată și publică pe EC2
           scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP:/home/ubuntu/.ssh/app-ssh-key.pem
           scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ~/.ssh/app-ssh-key.pub ubuntu@$INSTANCE_IP:/home/ubuntu/.ssh/app-ssh-key.pub
-
-          # Setează permisiuni corecte și adaugă cheia publică la authorized_keys
-          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << EOF
+          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
             chmod 600 /home/ubuntu/.ssh/app-ssh-key.pem
             chmod 644 /home/ubuntu/.ssh/app-ssh-key.pub
             cat /home/ubuntu/.ssh/app-ssh-key.pub >> /home/ubuntu/.ssh/authorized_keys
@@ -104,28 +89,23 @@ jobs:
       - name: Configure SSH, known_hosts, and transfer files to EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-
-          # 1. Crează ~/.ssh/known_hosts pe GitHub Runner și adaugă fingerprint-ul EC2
           mkdir -p ~/.ssh
           ssh-keyscan -H $INSTANCE_IP | tee -a ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-          # 2. Transferă inventory.ini pe instanța EC2
+          # Transferăm fișierul inventory.ini pe EC2
           scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
 
-          # 3. Crează ansible.cfg pe GitHub Runner
+          # Creăm și transferăm ansible.cfg care folosește inventarul transferat
           mkdir -p ~/.ansible
           echo "[defaults]" > ~/.ansible.cfg
-          echo "inventory = ~/ansible/inventory.ini" >> ~/.ansible.cfg
+          echo "inventory = ~/inventory.ini" >> ~/.ansible.cfg
           echo "host_key_checking = False" >> ~/.ansible.cfg
           echo "scp_if_ssh = True" >> ~/.ansible.cfg
           chmod 644 ~/.ansible.cfg
-
-          # 4. Transferă ansible.cfg pe instanța EC2
           scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ~/.ansible.cfg ubuntu@$INSTANCE_IP:/home/ubuntu/ansible.cfg
 
-          # 5. Configurează known_hosts și ansible.cfg pe EC2
-          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << EOF
+          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
             mkdir -p ~/.ssh ~/.ansible
             touch ~/.ssh/known_hosts
             ssh-keyscan -H $INSTANCE_IP | tee -a ~/.ssh/known_hosts
@@ -136,40 +116,27 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # Actualizează pachetele și instalează dependențele necesare
           sudo apt update && sudo apt install -y software-properties-common curl
-
-          # Adaugă repo-ul pentru Python 3.9
           sudo add-apt-repository -y ppa:deadsnakes/ppa
           sudo apt update
-
-          # Instalează Python 3.9 și dependențele necesare pentru Ansible
           sudo apt install -y python3.9 python3.9-venv python3.9-dev
-
-          # Instalează pip pentru Python 3.9
           curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
           python3.9 -m pip install --upgrade pip
-
-          # Instalează pachete Python necesare
           python3.9 -m pip install openshift pyyaml kubernetes jsonpatch
 
       - name: Install Ansible
         run: |
-          # Instalează Ansible
           sudo apt install -y ansible
-
-          # Verifică versiunea Ansible
           ansible --version
 
       - name: Install Ansible collections
         run: |
-          # Instalează colecțiile Ansible necesare
           ansible-galaxy collection install kubernetes.core
 
       - name: Verify pip installation
         run: python3.9 -m pip --version
 
-      - name: Install Ansible collections
+      - name: Install Ansible collections from requirements
         run: ansible-galaxy collection install -r ansible/Module2/collection-requirements.yaml
 
       - name: Run Ansible Playbooks
@@ -177,3 +144,4 @@ jobs:
           ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
           ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
           ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv
+
