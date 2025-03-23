@@ -34,7 +34,7 @@ jobs:
 
       - name: Generate Ansible Inventory
         run: |
-          # Se obține IP-ul instanței EC2 (public sau accesibil de pe runner)
+          # Obținem IP-ul instanței EC2 (public sau accesibil)
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           echo "[master]" > ansible/inventory.ini
           echo "$INSTANCE_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/app-ssh-key.pem" >> ansible/inventory.ini
@@ -93,7 +93,7 @@ jobs:
           # Transferăm inventarul pe EC2
           scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
 
-          # Creăm un fișier ansible.cfg care folosește inventarul transferat
+          # Creăm și transferăm ansible.cfg
           mkdir -p ~/.ansible
           echo "[defaults]" > ~/.ansible.cfg
           echo "inventory = ~/inventory.ini" >> ~/.ansible.cfg
@@ -111,9 +111,16 @@ jobs:
             chmod 644 ~/.ansible/ansible.cfg
           EOF
 
+      - name: Transfer Ansible repository to EC2
+        run: |
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          # Copiem recursiv întregul director ansible în ~/sciitdevops/ansible pe EC2
+          scp -r -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ansible ubuntu@$INSTANCE_IP:~/sciitdevops/
+
       - name: Install dependencies on EC2
         run: |
-          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$(terraform output -json instance_ips | jq -r '.[0]') << 'EOF'
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
             sudo apt update && sudo apt install -y software-properties-common curl
             sudo add-apt-repository -y ppa:deadsnakes/ppa
             sudo apt update
@@ -125,14 +132,16 @@ jobs:
 
       - name: Install Ansible on EC2
         run: |
-          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$(terraform output -json instance_ips | jq -r '.[0]') << 'EOF'
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
             sudo apt install -y ansible
             ansible --version
           EOF
 
       - name: Install Ansible collections on EC2
         run: |
-          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$(terraform output -json instance_ips | jq -r '.[0]') << 'EOF'
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
             ansible-galaxy collection install kubernetes.core
             ansible-galaxy collection install -r ~/sciitdevops/ansible/Module2/collection-requirements.yaml
           EOF
@@ -146,4 +155,3 @@ jobs:
             ansible-playbook -i ~/inventory.ini Module2/configure_k3s_cluster.yaml -vvv
             ansible-playbook -i ~/inventory.ini Module2/setup_argocd_jenkins.yaml -vvv
           EOF
-
