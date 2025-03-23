@@ -172,8 +172,8 @@ jobs:
       - name: Install Ansible collections
         run: ansible-galaxy collection install -r ansible/Module2/collection-requirements.yaml
 
-          #- name: Run Ansible Playbooks
-          #run: |
-          #ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
-          #ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
-          #ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv
+      - name: Run Ansible Playbooks
+        run: |
+          ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
+          ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
+          ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv
