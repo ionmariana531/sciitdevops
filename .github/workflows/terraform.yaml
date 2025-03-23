@@ -125,13 +125,11 @@ jobs:
             ansible --version
           EOF
 
-      - name: Install Ansible collections on EC2
+      - name: Install Ansible collections on the runner
         run: |
-          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
-            ansible-galaxy collection install kubernetes.core
-            ansible-galaxy collection install -r ~/sciitdevops/ansible/Module2/collection-requirements.yaml
-          EOF
+          # Instalează colecțiile necesare direct pe runner
+          ansible-galaxy collection install kubernetes.core
+          ansible-galaxy collection install -r ./ansible/Module2/collection-requirements.yaml
 
       - name: Run Ansible Playbooks on EC2
         run: |
