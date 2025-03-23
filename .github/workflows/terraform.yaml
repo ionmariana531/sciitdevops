@@ -136,15 +136,16 @@ jobs:
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           
           # Rulează primul playbook
-          ansible-playbook -i inventory.ini playbook.yaml -vvv -u ubuntu -i ~/.ssh/id_rsa
+          ansible-playbook -i inventory.ini ansible/playbook.yaml -vvv -u ubuntu -i ~/.ssh/id_rsa
+          
           # Rulează al doilea playbook
-          ansible-playbook -i inventory.ini Module2/configure_k3s_cluster.yaml -vvv -u ubuntu -i ~/.ssh/id_rsa
+          ansible-playbook -i inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv -u ubuntu -i ~/.ssh/id_rsa
 
           # Sleep pentru a aștepta finalizarea task-urilor
           sleep 30
 
           # Verifică dacă instanța EC2 răspunde
-          ssh -i ~/.ssh/id_rsa ubuntu@$INSTANCE_IP "ping -c 4 localhost"
+          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "ping -c 4 localhost"
 
           # Rulează al treilea playbook
-          ansible-playbook -i inventory.ini Module2/setup_argocd_jenkins.yaml -vvv -u ubuntu -i ~/.ssh/id_rsa
+          ansible-playbook -i inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv -u ubuntu -i ~/.ssh/id_rsa
