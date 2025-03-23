@@ -111,14 +111,12 @@ jobs:
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
             ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
-            sudo apt update && sudo apt install -y software-properties-common curl
-            sudo add-apt-repository -y ppa:deadsnakes/ppa
             sudo apt update
-            sudo apt install -y python3.9 python3.9-venv python3.9-dev python3-pip
-            pip3 install --upgrade pip
-            pip3 install openshift pyyaml kubernetes jsonpatch
+            # Instalăm pachetele necesare folosind apt
+            sudo apt install -y software-properties-common curl python3 python3-pip python3-openshift python3-yaml python3-kubernetes python3-jsonpatch
+            sudo apt upgrade -y  # Pentru a ne asigura că totul este la zi
           EOF
-
+          
       - name: Install Ansible on EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
