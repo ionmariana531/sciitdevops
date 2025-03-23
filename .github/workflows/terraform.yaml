@@ -11,9 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - uses: aws-actions/configure-aws-credentials@v1
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: '${{ secrets.AWS_ACCESS_KEY_ID }}'
           aws-secret-access-key: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
@@ -32,11 +34,13 @@ jobs:
 
       - name: Generate Ansible Inventory
         run: |
-          # Vom crea un inventar pentru EC2 care folosește conexiunea locală
+          # Se obține IP-ul instanței EC2 (public sau accesibil de pe runner)
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           echo "[master]" > ansible/inventory.ini
-          echo "localhost ansible_connection=local" >> ansible/inventory.ini
+          echo "$INSTANCE_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/app-ssh-key.pem" >> ansible/inventory.ini
+          cat ansible/inventory.ini
 
-      - name: Add SSH Keys
+      - name: Add SSH Keys on Runner
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > ~/.ssh/app-ssh-key.pem
@@ -50,7 +54,6 @@ jobs:
           WAIT_TIME=5
           MAX_WAIT_TIME=60
           RETRIES=0
-
           while ! nc -zv $INSTANCE_IP 22 && [ $RETRIES -lt 10 ]; do
             echo "Waiting for SSH to become available... Retry $((RETRIES+1))"
             sleep $WAIT_TIME
@@ -60,12 +63,10 @@ jobs:
               WAIT_TIME=$MAX_WAIT_TIME
             fi
           done
-
           if [ $RETRIES -ge 10 ]; then
             echo "SSH did not become available after 10 attempts."
             exit 1
           fi
-
           echo "SSH is now available on $INSTANCE_IP"
 
       - name: Copy SSH keys (private & public) to EC2
@@ -81,22 +82,18 @@ jobs:
             echo "SSH keys transferred and configured successfully."
           EOF
 
-      - name: Test SSH connection (Skip host validation)
+      - name: Test SSH connection
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "exit"
 
-      - name: Configure SSH, known_hosts, and transfer files to EC2
+      - name: Transfer inventory and ansible.cfg to EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          mkdir -p ~/.ssh
-          ssh-keyscan -H $INSTANCE_IP | tee -a ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
-          # Transferăm fișierul inventory.ini pe EC2
+          # Transferăm inventarul pe EC2
           scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
 
-          # Creăm și transferăm ansible.cfg care folosește inventarul transferat
+          # Creăm un fișier ansible.cfg care folosește inventarul transferat
           mkdir -p ~/.ansible
           echo "[defaults]" > ~/.ansible.cfg
           echo "inventory = ~/inventory.ini" >> ~/.ansible.cfg
@@ -114,34 +111,39 @@ jobs:
             chmod 644 ~/.ansible/ansible.cfg
           EOF
 
-      - name: Install dependencies
+      - name: Install dependencies on EC2
         run: |
-          sudo apt update && sudo apt install -y software-properties-common curl
-          sudo add-apt-repository -y ppa:deadsnakes/ppa
-          sudo apt update
-          sudo apt install -y python3.9 python3.9-venv python3.9-dev
-          curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
-          python3.9 -m pip install --upgrade pip
-          python3.9 -m pip install openshift pyyaml kubernetes jsonpatch
+          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$(terraform output -json instance_ips | jq -r '.[0]') << 'EOF'
+            sudo apt update && sudo apt install -y software-properties-common curl
+            sudo add-apt-repository -y ppa:deadsnakes/ppa
+            sudo apt update
+            sudo apt install -y python3.9 python3.9-venv python3.9-dev
+            curl -sS https://bootstrap.pypa.io/get-pip.py | sudo python3.9
+            sudo python3.9 -m pip install --upgrade pip
+            sudo python3.9 -m pip install openshift pyyaml kubernetes jsonpatch
+          EOF
 
-      - name: Install Ansible
+      - name: Install Ansible on EC2
         run: |
-          sudo apt install -y ansible
-          ansible --version
+          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$(terraform output -json instance_ips | jq -r '.[0]') << 'EOF'
+            sudo apt install -y ansible
+            ansible --version
+          EOF
 
-      - name: Install Ansible collections
+      - name: Install Ansible collections on EC2
         run: |
-          ansible-galaxy collection install kubernetes.core
+          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$(terraform output -json instance_ips | jq -r '.[0]') << 'EOF'
+            ansible-galaxy collection install kubernetes.core
+            ansible-galaxy collection install -r ~/sciitdevops/ansible/Module2/collection-requirements.yaml
+          EOF
 
-      - name: Verify pip installation
-        run: python3.9 -m pip --version
-
-      - name: Install Ansible collections from requirements
-        run: ansible-galaxy collection install -r ansible/Module2/collection-requirements.yaml
-
-      - name: Run Ansible Playbooks
+      - name: Run Ansible Playbooks on EC2
         run: |
-          ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
-          ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
-          ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
+            cd ~/sciitdevops/ansible
+            ansible-playbook -i ~/inventory.ini playbook.yaml -vvv
+            ansible-playbook -i ~/inventory.ini Module2/configure_k3s_cluster.yaml -vvv
+            ansible-playbook -i ~/inventory.ini Module2/setup_argocd_jenkins.yaml -vvv
+          EOF
 
