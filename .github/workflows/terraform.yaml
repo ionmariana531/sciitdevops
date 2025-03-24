@@ -116,3 +116,4 @@ jobs:
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv -u ubuntu --private-key ~/.ssh/app-ssh-key.pem
+
