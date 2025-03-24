@@ -66,14 +66,11 @@
         dest: /tmp/argocd-install.yaml
         mode: '0644'
 
-    - name: Refresh certificate
-      shell: systemctl stop k3s && k3s certificate rotate && systemctl start k3s      
-
     - name: Apply ArgoCD installation
       kubernetes.core.k8s:
         state: present
         src: /tmp/argocd-install.yaml
-        kubeconfig: /home/ubuntu/.kube/config
+        kubeconfig: /etc/rancher/k3s/k3s.yaml 
 
     - name: Wait for ArgoCD pods to be ready
       command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
