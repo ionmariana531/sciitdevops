@@ -66,6 +66,9 @@
         dest: /tmp/argocd-install.yaml
         mode: '0644'
 
+    - name: Refresh certificate
+      shell: systemctl stop k3s && k3s certificate rotate && systemctl start k3s      
+
     - name: Apply ArgoCD installation
       kubernetes.core.k8s:
         state: present
