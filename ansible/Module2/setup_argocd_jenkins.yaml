@@ -15,10 +15,20 @@
       apt:
         update_cache: yes
 
-    - name: Install kubectl from Ubuntu repo
-      apt:
-        name: kubectl
-        state: present
+    - name: Update apt cache
+        run: sudo apt-get update
+
+    - name: Install curl
+        run: sudo apt-get install -y curl
+
+    - name: Download and install the latest kubectl
+      run: |
+        curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x ./kubectl
+        sudo mv ./kubectl /usr/local/bin/kubectl
+
+    - name: Verify kubectl installation
+      run: kubectl version --client
 
     # 📌 Verify Kubernetes installation
     - name: Verify Kubernetes installation
