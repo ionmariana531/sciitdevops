@@ -11,24 +11,45 @@
         name: python3-kubernetes
         state: present
 
-    - name: Update apt cache
-      apt:
+    - name: Update apt package index
+      ansible.builtin.apt:
         update_cache: yes
 
-    - name: Update apt cache
-        run: sudo apt-get update
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
 
-    - name: Install curl
-        run: sudo apt-get install -y curl
+    - name: Ensure /etc/apt/keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
 
-    - name: Download and install the latest kubectl
-      run: |
-        curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
-        chmod +x ./kubectl
-        sudo mv ./kubectl /usr/local/bin/kubectl
+    - name: Add Kubernetes apt key
+      ansible.builtin.apt_key:
+        url: https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key
+        keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        state: present
 
-    - name: Verify kubectl installation
-      run: kubectl version --client
+    - name: Add Kubernetes apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /"
+        state: present
+        filename: "kubernetes"
+
+    - name: Update apt package index
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install kubectl
+      ansible.builtin.apt:
+        name: kubectl
+        state: present
 
     # 📌 Verify Kubernetes installation
     - name: Verify Kubernetes installation
