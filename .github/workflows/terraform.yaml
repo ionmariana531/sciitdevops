@@ -1,4 +1,3 @@
-ubuntu_fe@ubuntufe:~/terraform/aws/sciitdevops/.github/workflows$ cat terraform.yaml
 name: "Terraform CI/CD"
 
 on:
