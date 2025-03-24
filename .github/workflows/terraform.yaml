@@ -32,120 +32,56 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -auto-approve
 
+      - name: Debug Terraform Output
+        run: terraform output -json
+
       - name: Generate Ansible Inventory
         run: |
-          # Obținem IP-ul instanței EC2 (public sau accesibil)
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           echo "[master]" > ansible/inventory.ini
-          echo "$INSTANCE_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/app-ssh-key.pem" >> ansible/inventory.ini
+          echo "$INSTANCE_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/app-ssh-key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> ansible/inventory.ini
           cat ansible/inventory.ini
 
       - name: Add SSH Keys on Runner
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > ~/.ssh/app-ssh-key.pem
-          echo "${{ secrets.AWS_SSH_PUBLIC_KEY }}" > ~/.ssh/app-ssh-key.pub
           chmod 600 ~/.ssh/app-ssh-key.pem
-          chmod 644 ~/.ssh/app-ssh-key.pub
 
       - name: Wait for SSH to become available
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          WAIT_TIME=5
-          MAX_WAIT_TIME=60
-          RETRIES=0
-          while ! nc -zv $INSTANCE_IP 22 && [ $RETRIES -lt 10 ]; do
-            echo "Waiting for SSH to become available... Retry $((RETRIES+1))"
-            sleep $WAIT_TIME
-            RETRIES=$((RETRIES + 1))
-            WAIT_TIME=$((WAIT_TIME + 5))
-            if [ $WAIT_TIME -gt $MAX_WAIT_TIME ]; then
-              WAIT_TIME=$MAX_WAIT_TIME
+          for i in {1..10}; do
+            if nc -zv $INSTANCE_IP 22; then
+              echo "SSH is available on $INSTANCE_IP"
+              exit 0
             fi
+            echo "Retrying SSH connection ($i/10)..."
+            sleep 10
           done
-          if [ $RETRIES -ge 10 ]; then
-            echo "SSH did not become available after 10 attempts."
-            exit 1
-          fi
-          echo "SSH is now available on $INSTANCE_IP"
+          echo "SSH not available after multiple attempts."
+          exit 1
 
-      - name: Copy SSH keys (private & public) to EC2
-        run: |
-          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP:/home/ubuntu/.ssh/app-ssh-key.pem
-          scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no ~/.ssh/app-ssh-key.pub ubuntu@$INSTANCE_IP:/home/ubuntu/.ssh/app-ssh-key.pub
-          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
-            chmod 600 /home/ubuntu/.ssh/app-ssh-key.pem
-            chmod 644 /home/ubuntu/.ssh/app-ssh-key.pub
-            cat /home/ubuntu/.ssh/app-ssh-key.pub >> /home/ubuntu/.ssh/authorized_keys
-            chmod 600 /home/ubuntu/.ssh/authorized_keys
-            echo "SSH keys transferred and configured successfully."
-          EOF
-
-      - name: Test SSH connection
-        run: |
-          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "exit"
-
-      - name: Transfer localhost inventory and ansible.cfg to EC2
-        run: |
-          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-
-          # Creăm inventory.ini pentru localhost
-          echo "[local]" > inventory.ini
-          echo "localhost ansible_connection=local" >> inventory.ini
-
-          # Creăm ansible.cfg cu configurația dorită
-          echo "[defaults]" > ansible.cfg
-          echo "inventory = ~/inventory.ini" >> ansible.cfg
-          echo "host_key_checking = False" >> ansible.cfg
-          echo "scp_if_ssh = True" >> ansible.cfg
-
-          # Verificăm dacă cheia SSH există
-          ls -l ~/.ssh/app-ssh-key.pem
-
-          # Transferăm inventory.ini și ansible.cfg pe EC2
-          scp -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no inventory.ini ansible.cfg ubuntu@$INSTANCE_IP:/home/ubuntu/
-
-      - name: Install dependencies on EC2
-        run: |
-          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-            ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
-            sudo apt update
-            # Instalăm pachetele necesare folosind apt
-            sudo apt install -y software-properties-common curl python3 python3-pip python3-openshift python3-yaml python3-kubernetes python3-jsonpatch
-            sudo apt upgrade -y  # Pentru a ne asigura că totul este la zi
-          EOF
-          
       - name: Install Ansible on EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
+            sudo apt update
             sudo apt install -y ansible
-            ansible --version
           EOF
 
       - name: Install Ansible collections on the runner
         run: |
-          # Instalează colecțiile necesare direct pe runner
           ansible-galaxy collection install kubernetes.core
           ansible-galaxy collection install -r ./ansible/Module2/collection-requirements.yaml
 
       - name: Run Ansible Playbooks on EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          
-          # Rulează primul playbook
-          ansible-playbook -i inventory.ini ansible/playbook.yaml -vvv -u ubuntu -i ~/.ssh/id_rsa
-          
-          # Rulează al doilea playbook
-          ansible-playbook -i inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv -u ubuntu -i ~/.ssh/id_rsa
+          echo "[master]" > inventory.ini
+          echo "$INSTANCE_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/app-ssh-key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> inventory.ini
 
-          # Sleep pentru a aștepta finalizarea task-urilor
-          sleep 30
-
-          # Verifică dacă instanța EC2 răspunde
-          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "ping -c 4 localhost"
-
-          # Rulează al treilea playbook
-          ansible-playbook -i inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv -u ubuntu -i ~/.ssh/id_rsa
+          # Rulăm playbook-urile pe instanța EC2
+          ansible-playbook -i inventory.ini ansible/playbook.yaml -vvv
+          ansible-playbook -i inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
+          ansible-playbook -i inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv
