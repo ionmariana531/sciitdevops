@@ -113,3 +113,42 @@
           - --port=8080
           - --target-port=8080
       changed_when: true
+
+    # 📌 Wait for Jenkins service to be available
+    - name: Wait for Jenkins service to be available
+      command: kubectl wait --for=condition=available --timeout=300s deployment/jenkins
+      register: jenkins_deployment_status
+    - debug:
+        msg: "Jenkins service is ready: {{ jenkins_deployment_status.stdout }}"
+
+    # 📌 Ensure Jenkins is accessible on the port
+    - name: Ensure Jenkins is accessible
+      ansible.builtin.uri:
+        url: "http://localhost:{{ jenkins_service_port }}/"
+        status_code: 200
+      register: jenkins_access_check
+    - debug:
+        msg: "Jenkins is accessible at http://localhost:{{ jenkins_service_port }}/ with status: {{ jenkins_access_check.status }}"
+
+- name: Setup Kubernetes CLI on EC2 instance
+  hosts: ec2_instances
+  become: yes
+  tasks:
+    - name: Add the Kubernetes APT repository
+      apt_repository:
+        repo: 'deb https://apt.kubernetes.io/ kubernetes-xenial main'
+        state: present
+
+    - name: Add the Kubernetes signing key
+      apt_key:
+        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+        state: present
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install kubectl
+      apt:
+        name: kubectl
+        state: present
