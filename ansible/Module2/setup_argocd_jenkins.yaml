@@ -11,9 +11,12 @@
         name: python3-kubernetes
         state: present
 
-    # 📌 Install kubectl on EC2 instance (if not already installed)
-    - name: Install kubectl on EC2 instance
-      ansible.builtin.package:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install kubectl from Ubuntu repo
+      apt:
         name: kubectl
         state: present
 
