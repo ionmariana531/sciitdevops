@@ -70,6 +70,7 @@
       kubernetes.core.k8s:
         state: present
         src: /tmp/argocd-install.yaml
+        kubeconfig: /home/ubuntu/.kube/config
 
     - name: Wait for ArgoCD pods to be ready
       command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
