@@ -1,4 +1,3 @@
----
 - name: Install ArgoCD and Jenkins on k3s
   hosts: master
   become: yes
@@ -10,6 +9,12 @@
     - name: Install kubernetes Python package using apt
       ansible.builtin.package:
         name: python3-kubernetes
+        state: present
+
+    # 📌 Install kubectl on EC2 instance (if not already installed)
+    - name: Install kubectl on EC2 instance
+      ansible.builtin.package:
+        name: kubectl
         state: present
 
     # 📌 Verify Kubernetes installation
@@ -27,13 +32,13 @@
         dest: /tmp/argocd-install.yaml
         mode: '0644'
 
-    # Apply metrics-server manifest to the cluster (inclusiv dacă se află în altă locație)
-    - name: Apply metrics-server manifest to the cluster.
+    - name: Apply ArgoCD installation
       kubernetes.core.k8s:
         state: present
-        src: ~/metrics-server.yaml
-        kubeconfig: /home/ubuntu/.kube/config
-        validate_certs: no 
+        src: /tmp/argocd-install.yaml
+
+    - name: Wait for ArgoCD pods to be ready
+      command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
 
     - name: Verify ArgoCD installation
       ansible.builtin.command:
@@ -47,41 +52,42 @@
     - debug:
         msg: "{{ argocd_pods.stdout }}"
 
+    # Expose ArgoCD server via port forwarding (no LoadBalancer)
     - name: Expose ArgoCD server using port-forwarding
       ansible.builtin.shell: nohup kubectl port-forward svc/argocd-server -n argocd 8080:443 > /dev/null 2>&1 &
       async: 600
       poll: 0
       changed_when: true
 
-    # 📌 Install Jenkins
-    - name: Copy Jenkins Deployment manifest
+    # 📌 Copy Jenkins Deployment manifest to EC2
+    - name: Copy Jenkins Deployment manifest to EC2
       ansible.builtin.copy:
-        src: jenkins-deployment.yaml
+        src: /home/ubuntu_fe/terraform/aws/sciitdevops/ansible/Module2/ArgoCD/jenkins-deployment.yaml
         dest: /tmp/jenkins-deployment.yaml
         mode: '0644'
 
-    - name: Copy Jenkins PVC manifest
+    # 📌 Copy Jenkins PVC manifest to EC2
+    - name: Copy Jenkins PVC manifest to EC2
       ansible.builtin.copy:
-        src: jenkins-pvc.yaml
+        src: /home/ubuntu_fe/terraform/aws/sciitdevops/ansible/Module2/ArgoCD/jenkins-pvc.yaml
         dest: /tmp/jenkins-pvc.yaml
         mode: '0644'
 
+    # 📌 Apply Jenkins Deployment manifest
     - name: Apply Jenkins Deployment manifest
-      ansible.builtin.command:
-        argv:
-          - kubectl
-          - apply
-          - -f
-          - /tmp/jenkins-deployment.yaml
-      changed_when: true
-
-    # Apply metrics-server manifest to the cluster (dacă nu a fost deja aplicat)
-    - name: Apply metrics-server manifest to the cluster again if needed.
       kubernetes.core.k8s:
         state: present
-        src: ~/metrics-server.yaml
-        kubeconfig: /home/ubuntu/.kube/config
+        src: /tmp/jenkins-deployment.yaml
+      changed_when: true
 
+    # 📌 Apply Jenkins PVC manifest
+    - name: Apply Jenkins PVC manifest
+      kubernetes.core.k8s:
+        state: present
+        src: /tmp/jenkins-pvc.yaml
+      changed_when: true
+
+    # 📌 Verify Jenkins installation
     - name: Verify Jenkins installation
       ansible.builtin.command:
         argv:
@@ -94,7 +100,8 @@
     - debug:
         msg: "{{ jenkins_pods.stdout }}"
 
-    - name: Expose Jenkins service
+    # Expose Jenkins service using NodePort (no LoadBalancer)
+    - name: Expose Jenkins service via NodePort
       ansible.builtin.command:
         argv:
           - kubectl
