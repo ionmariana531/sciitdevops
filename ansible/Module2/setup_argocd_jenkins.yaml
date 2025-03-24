@@ -60,6 +60,19 @@
         msg: "Current Kubernetes context: {{ k8s_context.stdout }}"
 
     # 📌 Install ArgoCD
+    - name: Create ArgoCD namespace
+      kubernetes.core.k8s:
+        name: argocd
+        api_version: v1
+        kind: Namespace
+        state: present
+
+    - name: Install ArgoCD
+      kubernetes.core.k8s:
+        state: present
+        src: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+        namespace: argocd
+
     - name: Download ArgoCD manifests
       ansible.builtin.get_url:
         url: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
