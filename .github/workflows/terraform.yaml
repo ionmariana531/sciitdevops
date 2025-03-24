@@ -99,11 +99,20 @@ jobs:
           ansible-galaxy collection install kubernetes.core
           ansible-galaxy collection install -r ./ansible/Module2/collection-requirements.yaml
 
-      - name: Run Ansible Playbooks on EC2
+      # Step to run the first playbook
+      - name: Run Playbook 1: playbook.yaml
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv -u ubuntu --private-key ~/.ssh/app-ssh-key.pem
+
+      # Step to run the second playbook
+      - name: Run Playbook 2: configure_k3s_cluster.yaml
+        run: |
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv -u ubuntu --private-key ~/.ssh/app-ssh-key.pem
-          sleep 30
-          ssh -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "ping -c 4 localhost"
+
+      # Step to run the third playbook
+      - name: Run Playbook 3: setup_argocd_jenkins.yaml
+        run: |
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv -u ubuntu --private-key ~/.ssh/app-ssh-key.pem
