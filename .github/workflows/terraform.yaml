@@ -100,19 +100,19 @@ jobs:
           ansible-galaxy collection install -r ./ansible/Module2/collection-requirements.yaml
 
       # Step to run the first playbook
-      - name: Run Playbook 1: playbook.yaml
+      - name: Run Playbook 3
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv -u ubuntu --private-key ~/.ssh/app-ssh-key.pem
 
       # Step to run the second playbook
-      - name: Run Playbook 2: configure_k3s_cluster.yaml
+      - name: Run Playbook 2 
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv -u ubuntu --private-key ~/.ssh/app-ssh-key.pem
 
       # Step to run the third playbook
-      - name: Run Playbook 3: setup_argocd_jenkins.yaml
+      - name: Run Playbook 3
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv -u ubuntu --private-key ~/.ssh/app-ssh-key.pem
