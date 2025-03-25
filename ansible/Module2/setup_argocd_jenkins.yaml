@@ -106,26 +106,15 @@
       poll: 0
       changed_when: true
 
-    # Installing Helm
-    - name: Install Helm
-      shell: |
-        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-      args:
-        creates: /usr/local/bin/helm
+    - name: Add ArgoCD Helm repository
+      helm_repository:
+        name: argo
+        repo_url: https://argoproj.github.io/argo-helm
+        state: present
 
-    - name: Check Helm version
-      command: helm version
-      register: helm_version
-      changed_when: false
-
-    - debug:
-        msg: "Helm installed successfully: {{ helm_version.stdout }}"
-
-    # 📌 Add Jenkins Helm repository to ArgoCD
     - name: Add Jenkins Helm repository to ArgoCD
       kubernetes.core.k8s:
-        kubeconfig: /etc/rancher/k3s/k3s.yaml
-        state: present
+        kubeconfig: /etc/rancher/k3s/k3s.yaml 
         definition:
           apiVersion: argoproj.io/v1alpha1
           kind: Repository
@@ -135,12 +124,12 @@
           spec:
             type: helm
             url: https://charts.jenkins.io
-
-    # 📌 Create ArgoCD Application for Jenkins using Helm chart
-    - name: Create ArgoCD Application for Jenkins
-      kubernetes.core.k8s:
-        kubeconfig: /etc/rancher/k3s/k3s.yaml
         state: present
+        wait: true
+
+    - name: Create the ArgoCD Application for Jenkins
+      kubernetes.core.k8s:
+        kubeconfig: /etc/rancher/k3s/k3s.yaml 
         definition:
           apiVersion: argoproj.io/v1alpha1
           kind: Application
@@ -149,71 +138,16 @@
             namespace: argocd
           spec:
             destination:
+              name: ''
               namespace: jenkins
               server: https://kubernetes.default.svc
-            project: default
             source:
-              repoURL: https://charts.jenkins.io
-              targetRevision: "5.8.6"  # Asigură-te că este un tag valid
+              repoURL: https://github.com/helm/charts
+              targetRevision: master
               chart: jenkins
-              helm:
-                values: |
-                  controller:
-                    image:
-                      registry: docker.io
-                      repository: jenkins/jenkins
-                      tag: lts
-                    serviceType: ClusterIP  # Schimbă din LoadBalancer
-                    admin:
-                      username: "admin"
-                      password: "admin"  # Plain text (nu este recomandat în producție)
-                    installPlugins:
-                      - git:5.7.0
-                      - kubernetes:1.30.1
-                      - ssh:158.ve2a_e90fb_7319
-                      - ssh-agent:384.ve275343791a_6
-                      - ssh-steps:2.0.79.v1d1b_5f76dda_8
-              podSecurityContextOverride:
-                runAsNonRoot: true
-                runAsUser: 1000
-                supplementalGroups: [1000]
-        syncPolicy:
-          automated:
-            selfHeal: true
-            prune: true
-
-    # 📌 Verify Jenkins installation
-    - name: Verify Jenkins installation
-      ansible.builtin.command:
-        argv:
-          - kubectl
-          - get
-          - pods
-          - -n
-          - jenkins
-      register: jenkins_pods
-    - debug:
-        msg: "{{ jenkins_pods.stdout }}"
-
-    # 📌 Wait for Jenkins service to be available
-    - name: Wait for Jenkins service to be available
-      command: kubectl wait --for=condition=available --timeout=300s deployment/jenkins
-      register: jenkins_deployment_status
-    - debug:
-        msg: "Jenkins service is ready: {{ jenkins_deployment_status.stdout }}"
-
-    # 📌 Expose Jenkins via Port-Forwarding (pentru acces temporar)
-    - name: Expose Jenkins server using port-forwarding
-      ansible.builtin.shell: nohup kubectl port-forward svc/jenkins -n jenkins 8081:8080 > /dev/null 2>&1 & 
-      async: 600
-      poll: 0
-      changed_when: true
-
-    # 📌 Ensure Jenkins is accessible on the port
-    - name: Ensure Jenkins is accessible
-      ansible.builtin.uri:
-        url: "http://localhost:8081/"
-        status_code: 200
-      register: jenkins_access_check
-    - debug:
-        msg: "Jenkins is accessible at http://localhost:8081/ with status: {{ jenkins_access_check.status }}"
+            syncPolicy:
+              automated:
+                prune: true
+                selfHeal: true
+        state: present
+        wait: true
