@@ -103,32 +103,30 @@
       poll: 0
       changed_when: true
 
-    # 📌 Copy Jenkins Deployment manifest to EC2
     - name: Copy Jenkins Deployment manifest to EC2
       ansible.builtin.copy:
-        src: /home/runner/work/sciitdevops/sciitdevops/ansible/Module2/ArgoCD/jenkins_deployment.yaml 
-        dest: ~/.kube/config 
+        src: /home/runner/work/sciitdevops/sciitdevops/ansible/Module2/ArgoCD/jenkins_deployment.yaml
+        dest: /tmp/jenkins_deployment.yaml  # Salvăm manifestul într-un alt loc
         mode: '0644'
 
-    # 📌 Copy Jenkins PVC manifest to EC2
     - name: Copy Jenkins PVC manifest to EC2
       ansible.builtin.copy:
         src: /home/runner/work/sciitdevops/sciitdevops/ansible/Module2/ArgoCD/jenkins_pvc.yaml
-        dest: ~/.kube/config
+        dest: /tmp/jenkins_pvc.yaml  # Salvăm manifestul într-un alt loc
         mode: '0644'
 
-    # 📌 Apply Jenkins Deployment manifest
     - name: Apply Jenkins Deployment manifest
       kubernetes.core.k8s:
+        kubeconfig: ~/.kube/config  # Aici folosim kubeconfig-ul real
         state: present
-        src: ~/.kube/config 
+        src: /tmp/jenkins_deployment.yaml  # Aplicăm manifestul corect
       changed_when: true
 
-    # 📌 Apply Jenkins PVC manifest
     - name: Apply Jenkins PVC manifest
       kubernetes.core.k8s:
+        kubeconfig: ~/.kube/config  # Aici folosim kubeconfig-ul real
         state: present
-        src: ~/.kube/config 
+        src: /tmp/jenkins_pvc.yaml  # Aplicăm manifestul corect
       changed_when: true
 
     # 📌 Verify Jenkins installation
