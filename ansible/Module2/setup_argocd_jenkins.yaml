@@ -109,14 +109,14 @@
     # 📌 Copy Jenkins Deployment manifest to EC2
     - name: Copy Jenkins Deployment manifest to EC2
       ansible.builtin.copy:
-        src: /home/ubuntu_fe/terraform/aws/sciitdevops/ansible/Module2/ArgoCD/jenkins-deployment.yaml
+        src: ./ansible/Module2/ArgoCD/jenkins-deployment.yaml 
         dest: /tmp/jenkins-deployment.yaml
         mode: '0644'
 
     # 📌 Copy Jenkins PVC manifest to EC2
     - name: Copy Jenkins PVC manifest to EC2
       ansible.builtin.copy:
-        src: /home/ubuntu_fe/terraform/aws/sciitdevops/ansible/Module2/ArgoCD/jenkins-pvc.yaml
+        src: ./ansible/Module2/ArgoCD/jenkins-deployment.yaml
         dest: /tmp/jenkins-pvc.yaml
         mode: '0644'
 
