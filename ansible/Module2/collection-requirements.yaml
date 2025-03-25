@@ -2,4 +2,6 @@
 collections:
   - name: kubernetes.core
     version: 5.1.0
+  - name: community.kubernetes
+    version: 2.0.1 
 
