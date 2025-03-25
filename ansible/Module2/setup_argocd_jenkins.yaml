@@ -151,20 +151,6 @@
     - debug:
         msg: "{{ jenkins_pods.stdout }}"
 
-    # Expose Jenkins service using NodePort (no LoadBalancer)
-    - name: Expose Jenkins service via NodePort
-      ansible.builtin.command:
-        argv:
-          - kubectl
-          - expose
-          - deployment
-          - jenkins
-          - --type=NodePort
-          - --name=jenkins-service
-          - --port=8080
-          - --target-port=8080
-      changed_when: true
-
     # 📌 Wait for Jenkins service to be available
     - name: Wait for Jenkins service to be available
       command: kubectl wait --for=condition=available --timeout=300s deployment/jenkins
