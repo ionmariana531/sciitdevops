@@ -84,9 +84,6 @@
         #src: /tmp/argocd-install.yaml
         #kubeconfig: /etc/rancher/k3s/k3s.yaml 
 
-    - name: Wait for ArgoCD pods to be ready
-      command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
-
     - name: Verify ArgoCD installation
       ansible.builtin.command:
         argv:
@@ -112,6 +109,7 @@
         src: ./ansible/Module2/ArgoCD/jenkins-deployment.yaml 
         dest: /tmp/jenkins-deployment.yaml
         mode: '0644'
+        remote_src: yes
 
     # 📌 Copy Jenkins PVC manifest to EC2
     - name: Copy Jenkins PVC manifest to EC2
@@ -119,6 +117,7 @@
         src: ./ansible/Module2/ArgoCD/jenkins-deployment.yaml
         dest: /tmp/jenkins-pvc.yaml
         mode: '0644'
+        remote_src: yes
 
     # 📌 Apply Jenkins Deployment manifest
     - name: Apply Jenkins Deployment manifest
