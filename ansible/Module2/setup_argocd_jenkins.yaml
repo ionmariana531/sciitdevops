@@ -146,7 +146,7 @@
           - get
           - pods
           - -n
-          - default
+          - jenkins 
       register: jenkins_pods
     - debug:
         msg: "{{ jenkins_pods.stdout }}"
@@ -172,25 +172,18 @@
     - debug:
         msg: "Jenkins service is ready: {{ jenkins_deployment_status.stdout }}"
 
+    # 📌 Expose Jenkins via Port-Forwarding (pentru acces temporar)
+    - name: Expose Jenkins server using port-forwarding
+      ansible.builtin.shell: nohup kubectl port-forward svc/jenkins -n jenkins 8081:8080 > /dev/null 2>&1 &
+      async: 600
+      poll: 0
+      changed_when: true
+
     # 📌 Ensure Jenkins is accessible on the port
     - name: Ensure Jenkins is accessible
       ansible.builtin.uri:
-        url: "http://localhost:{{ jenkins_service_port }}/"
+        url: "http://localhost:8081/"
         status_code: 200
       register: jenkins_access_check
     - debug:
-        msg: "Jenkins is accessible at http://localhost:{{ jenkins_service_port }}/ with status: {{ jenkins_access_check.status }}"
-
-- name: Setup Kubernetes CLI on EC2 instance
-  hosts: ubuntu 
-  become: yes
-  tasks:
-    - name: Add the Kubernetes APT repository
-      apt_repository:
-        repo: 'deb https://apt.kubernetes.io/ kubernetes-xenial main'
-        state: present
-
-    - name: Add the Kubernetes signing key
-      apt_key:
-        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
-        state: present
+        msg: "Jenkins is accessible at http://localhost:8081/ with status: {{ jenkins_access_check.status }}"
