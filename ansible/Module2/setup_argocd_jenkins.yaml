@@ -107,28 +107,28 @@
     - name: Copy Jenkins Deployment manifest to EC2
       ansible.builtin.copy:
         src: /home/runner/work/sciitdevops/sciitdevops/ansible/Module2/ArgoCD/jenkins_deployment.yaml 
-        dest: /tmp/jenkins_deployment.yaml
+        dest: /etc/rancher/k3s/k3s.yaml
         mode: '0644'
 
     # 📌 Copy Jenkins PVC manifest to EC2
     - name: Copy Jenkins PVC manifest to EC2
       ansible.builtin.copy:
         src: /home/runner/work/sciitdevops/sciitdevops/ansible/Module2/ArgoCD/jenkins_pvc.yaml
-        dest: /tmp/jenkins_pvc.yaml
+        dest: /etc/rancher/k3s/k3s.yaml
         mode: '0644'
 
     # 📌 Apply Jenkins Deployment manifest
     - name: Apply Jenkins Deployment manifest
       kubernetes.core.k8s:
         state: present
-        src: /tmp/jenkins_deployment.yaml
+        src: /etc/rancher/k3s/k3s.yaml
       changed_when: true
 
     # 📌 Apply Jenkins PVC manifest
     - name: Apply Jenkins PVC manifest
       kubernetes.core.k8s:
         state: present
-        src: /tmp/jenkins_pvc.yaml
+        src: /etc/rancher/k3s/k3s.yaml 
       changed_when: true
 
     # 📌 Verify Jenkins installation
