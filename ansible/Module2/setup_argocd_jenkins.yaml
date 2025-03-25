@@ -109,7 +109,7 @@
         src: ./ansible/Module2/ArgoCD/jenkins-deployment.yaml 
         dest: /tmp/jenkins-deployment.yaml
         mode: '0644'
-        remote_src: yes
+        remote_src: no
 
     # 📌 Copy Jenkins PVC manifest to EC2
     - name: Copy Jenkins PVC manifest to EC2
@@ -117,7 +117,7 @@
         src: ./ansible/Module2/ArgoCD/jenkins-deployment.yaml
         dest: /tmp/jenkins-pvc.yaml
         mode: '0644'
-        remote_src: yes
+        remote_src: no
 
     # 📌 Apply Jenkins Deployment manifest
     - name: Apply Jenkins Deployment manifest
