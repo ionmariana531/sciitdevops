@@ -106,31 +106,29 @@
     # 📌 Copy Jenkins Deployment manifest to EC2
     - name: Copy Jenkins Deployment manifest to EC2
       ansible.builtin.copy:
-        src: ./ansible/Module2/ArgoCD/jenkins-deployment.yaml 
-        dest: /tmp/jenkins-deployment.yaml
+        src: ./ansible/Module2/ArgoCD/jenkins_deployment.yaml 
+        dest: /tmp/jenkins_deployment.yaml
         mode: '0644'
-        remote_src: no
 
     # 📌 Copy Jenkins PVC manifest to EC2
     - name: Copy Jenkins PVC manifest to EC2
       ansible.builtin.copy:
-        src: ./ansible/Module2/ArgoCD/jenkins-deployment.yaml
-        dest: /tmp/jenkins-pvc.yaml
+        src: ./ansible/Module2/ArgoCD/jenkins_pvc.yaml
+        dest: /tmp/jenkins_pvc.yaml
         mode: '0644'
-        remote_src: no
 
     # 📌 Apply Jenkins Deployment manifest
     - name: Apply Jenkins Deployment manifest
       kubernetes.core.k8s:
         state: present
-        src: /tmp/jenkins-deployment.yaml
+        src: /tmp/jenkins_deployment.yaml
       changed_when: true
 
     # 📌 Apply Jenkins PVC manifest
     - name: Apply Jenkins PVC manifest
       kubernetes.core.k8s:
         state: present
-        src: /tmp/jenkins-pvc.yaml
+        src: /tmp/jenkins_pvc.yaml
       changed_when: true
 
     # 📌 Verify Jenkins installation
@@ -177,7 +175,7 @@
         msg: "Jenkins is accessible at http://localhost:{{ jenkins_service_port }}/ with status: {{ jenkins_access_check.status }}"
 
 - name: Setup Kubernetes CLI on EC2 instance
-  hosts: ec2_instances
+  hosts: ubuntu 
   become: yes
   tasks:
     - name: Add the Kubernetes APT repository
@@ -188,13 +186,4 @@
     - name: Add the Kubernetes signing key
       apt_key:
         url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
-        state: present
-
-    - name: Update apt cache
-      apt:
-        update_cache: yes
-
-    - name: Install kubectl
-      apt:
-        name: kubectl
         state: present
