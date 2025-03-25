@@ -106,6 +106,21 @@
       poll: 0
       changed_when: true
 
+    # Installing Helm
+    - name: Install Helm
+      shell: |
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      args:
+        creates: /usr/local/bin/helm
+
+    - name: Check Helm version
+      command: helm version
+      register: helm_version
+      changed_when: false
+
+    - debug:
+        msg: "Helm installed successfully: {{ helm_version.stdout }}"
+
     # 📌 Add Jenkins Helm repository to ArgoCD
     - name: Add Jenkins Helm repository to ArgoCD
       kubernetes.core.k8s:
