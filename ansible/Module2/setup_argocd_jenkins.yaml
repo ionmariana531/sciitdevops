@@ -107,28 +107,28 @@
     - name: Copy Jenkins Deployment manifest to EC2
       ansible.builtin.copy:
         src: /home/runner/work/sciitdevops/sciitdevops/ansible/Module2/ArgoCD/jenkins_deployment.yaml 
-        dest: /home/ubuntu/.kube/config 
+        dest: ~/.kube/config 
         mode: '0644'
 
     # 📌 Copy Jenkins PVC manifest to EC2
     - name: Copy Jenkins PVC manifest to EC2
       ansible.builtin.copy:
         src: /home/runner/work/sciitdevops/sciitdevops/ansible/Module2/ArgoCD/jenkins_pvc.yaml
-        dest: /home/ubuntu/.kube/config
+        dest: ~/.kube/config
         mode: '0644'
 
     # 📌 Apply Jenkins Deployment manifest
     - name: Apply Jenkins Deployment manifest
       kubernetes.core.k8s:
         state: present
-        src: /home/ubuntu/.kube/config
+        src: ~/.kube/config 
       changed_when: true
 
     # 📌 Apply Jenkins PVC manifest
     - name: Apply Jenkins PVC manifest
       kubernetes.core.k8s:
         state: present
-        src: /home/ubuntu/.kube/config 
+        src: ~/.kube/config 
       changed_when: true
 
     # 📌 Verify Jenkins installation
