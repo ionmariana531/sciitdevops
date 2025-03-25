@@ -68,6 +68,15 @@
         kind: Namespace
         state: present
 
+    # 📌 Create Jenkins namespace
+    - name: Create Jenkins namespace
+      kubernetes.core.k8s:
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
+        name: jenkins
+        api_version: v1
+        kind: Namespace
+        state: present
+
     - name: Install ArgoCD
       kubernetes.core.k8s:
         kubeconfig: /etc/rancher/k3s/k3s.yaml
