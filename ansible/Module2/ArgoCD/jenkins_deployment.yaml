@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: jenkins
-  namespace: argocd  # 🔹 Am actualizat namespace-ul
+  namespace: jenkins  # 🔹 Am actualizat namespace-ul
 spec:
   replicas: 1
   selector:
