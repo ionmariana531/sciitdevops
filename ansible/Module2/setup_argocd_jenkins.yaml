@@ -126,14 +126,14 @@
 
     - name: Apply Jenkins Deployment manifest
       kubernetes.core.k8s:
-        kubeconfig: ~/.kube/config  # Aici folosim kubeconfig-ul real
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
         state: present
         src: /tmp/jenkins_deployment.yaml  # Aplicăm manifestul corect
       changed_when: true
 
     - name: Apply Jenkins PVC manifest
       kubernetes.core.k8s:
-        kubeconfig: ~/.kube/config  # Aici folosim kubeconfig-ul real
+        kubeconfig: /etc/rancher/k3s/k3s.yaml # Aici folosim kubeconfig-ul real
         state: present
         src: /tmp/jenkins_pvc.yaml  # Aplicăm manifestul corect
       changed_when: true
