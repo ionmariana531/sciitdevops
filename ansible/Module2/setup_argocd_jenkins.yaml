@@ -1,22 +1,46 @@
+---
 - name: Install ArgoCD and Jenkins on k3s
   hosts: master
   become: yes
   vars:
     ansible_python_interpreter: /usr/bin/python3
-    argocd_service_type: NodePort   # Poți seta ClusterIP, NodePort sau LoadBalancer
+    argocd_service_type: NodePort
+    ssl_verify: false  # Dezactivează verificarea SSL (modifică dacă folosești SSL valid)
 
   tasks:
-
     # 📌 Install Kubernetes Python package using apt
     - name: Install kubernetes Python package using apt
       ansible.builtin.package:
         name: python3-kubernetes
         state: present
 
+    # 📌 Install latest versions of kubernetes and openshift Python packages
+    - name: Install latest versions of kubernetes and openshift Python packages
+      ansible.builtin.pip:
+        name:
+          - kubernetes
+          - openshift
+        state: latest
+
+    # 📌 Install kubectl if not installed
+    - name: Check if kubectl is installed
+      ansible.builtin.command:
+        cmd: kubectl version --client=true
+      register: kubectl_version
+      ignore_errors: true  # Dacă kubectl nu este instalat, va continua cu instalarea lui
+
+    - name: Install kubectl if not installed
+      ansible.builtin.apt:
+        name: kubectl
+        state: present
+      when: kubectl_version.rc != 0  # Se instalează doar dacă kubectl nu este deja instalat
+
+    # 📌 Update apt package index
     - name: Update apt package index
       ansible.builtin.apt:
         update_cache: yes
 
+    # 📌 Install required packages
     - name: Install required packages
       ansible.builtin.apt:
         name:
@@ -44,10 +68,7 @@
         state: present
         filename: "kubernetes"
 
-    - name: Update apt package index
-      ansible.builtin.apt:
-        update_cache: yes
-
+    # 📌 Install kubectl
     - name: Install kubectl
       ansible.builtin.apt:
         name: kubectl
@@ -142,4 +163,3 @@
               automated:
                 prune: true
                 selfHeal: true
-
