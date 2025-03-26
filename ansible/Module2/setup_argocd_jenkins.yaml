@@ -110,6 +110,7 @@
           kind: Application
           metadata:
             name: jenkins  # Numele aplicației
+            namespace: argocd
           spec:
             destination:
               namespace: jenkins  # Namespace-ul unde se va aplica Jenkins
