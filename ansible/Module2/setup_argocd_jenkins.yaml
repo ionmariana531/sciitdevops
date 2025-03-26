@@ -97,7 +97,7 @@
           spec:
             type: "{{ argocd_service_type }}"
             selector:
-              app.kubernetes.io/name: argocd-server
+              app: argocd
             ports:
               - protocol: TCP
                 port: 80
