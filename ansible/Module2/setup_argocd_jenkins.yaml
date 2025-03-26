@@ -87,24 +87,23 @@
     - name: Wait for ArgoCD pods to be ready
       command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
 
-    - name: Expose ArgoCD Server via NodePort
+    - name: Expose ArgoCD Server via LoadBalancer
       kubernetes.core.k8s:
         state: present
         definition:
           apiVersion: v1
           kind: Service
           metadata:
-            name: argocd-server-nodeport
+            name: argocd-server-loadbalancer
             namespace: argocd
           spec:
-            type: NodePort
+            type: LoadBalancer
             selector:
               app.kubernetes.io/name: argocd-server
             ports:
               - protocol: TCP
                 port: 80
                 targetPort: 443
-                nodePort: 30080  # 📌 Poți schimba între 30000-32767
 
     - name: Get ArgoCD admin password
       shell: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 --decode
