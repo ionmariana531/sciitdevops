@@ -98,7 +98,6 @@
       register: argocd_pods
     - debug:
         msg: "{{ argocd_pods.stdout }}"
-
 # 📌 Create ArgoCD Application for Jenkins
     - name: Create ArgoCD Application for Jenkins
       kubernetes.core.k8s:
@@ -111,16 +110,17 @@
           kind: Application
           metadata:
             name: jenkins  # Numele aplicației
-         spec:
-           destination:
-             namespace: jenkins  # Namespace-ul unde se va aplica Jenkins
-             server: https://kubernetes.default.svc  # ArgoCD va implementa în clusterul curent
-           source:
-             repoURL: "https://github.com/ionmariana531/sciitdevops.git"  # URL-ul depozitului Git
-             targetRevision: "add-terraform-github-actions-Mariana-fe"  # Ramura din Git care va fi folosită
-             path: "ansible/Module2/ArgoCD/jenkins_deployment.yaml"  # Calea către fișierul de configurare Jenkins
-           project: default  # Poate fi un proiect specific ArgoCD, în acest caz, folosim `default`
-           syncPolicy:
-             automated:
-               prune: true  # Prunează resursele neutilizate
-               selfHeal: true  # Sincronizează automat aplicația când sunt schimbări în repo
+          spec:
+            destination:
+              namespace: jenkins  # Namespace-ul unde se va aplica Jenkins
+              server: https://kubernetes.default.svc  # ArgoCD va implementa în clusterul curent
+            source:
+              repoURL: "https://github.com/ionmariana531/sciitdevops.git"  # URL-ul depozitului Git
+              targetRevision: "add-terraform-github-actions-Mariana-fe"  # Ramura din Git care va fi folosită
+              path: "ansible/Module2/ArgoCD/jenkins_deployment.yaml"  # Calea către fișierul de configurare Jenkins
+            project: default  # Poate fi un proiect specific ArgoCD, în acest caz, folosim `default`
+            syncPolicy:
+            automated:
+              prune: true  # Prunează resursele neutilizate
+              selfHeal: true  # Sincronizează automat aplicația când sunt schimbări în repo
+
