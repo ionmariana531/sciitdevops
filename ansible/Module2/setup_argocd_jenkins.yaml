@@ -1,52 +1,20 @@
----
 - name: Install ArgoCD and Jenkins on k3s
   hosts: master
   become: yes
   vars:
     ansible_python_interpreter: /usr/bin/python3
-    argocd_service_type: NodePort
-    ssl_verify: false  # Dezactivează verificarea SSL (modifică dacă folosești SSL valid)
-
   tasks:
+
     # 📌 Install Kubernetes Python package using apt
     - name: Install kubernetes Python package using apt
       ansible.builtin.package:
         name: python3-kubernetes
         state: present
 
-    # 📌 Install pip3 if not installed
-    - name: Install pip3
-      ansible.builtin.package:
-        name: python3-pip
-        state: present
-
-    # 📌 Install latest versions of kubernetes and openshift Python packages
-    - name: Install latest versions of kubernetes and openshift Python packages
-      ansible.builtin.pip:
-        name:
-          - kubernetes
-          - openshift
-        state: latest
-
-    # 📌 Install kubectl if not installed
-    - name: Check if kubectl is installed
-      ansible.builtin.command:
-        cmd: kubectl version --client=true
-      register: kubectl_version
-      ignore_errors: true  # Dacă kubectl nu este instalat, va continua cu instalarea lui
-
-    - name: Install kubectl if not installed
-      ansible.builtin.apt:
-        name: kubectl
-        state: present
-      when: kubectl_version.rc != 0  # Se instalează doar dacă kubectl nu este deja instalat
-
-    # 📌 Update apt package index
     - name: Update apt package index
       ansible.builtin.apt:
         update_cache: yes
 
-    # 📌 Install required packages
     - name: Install required packages
       ansible.builtin.apt:
         name:
@@ -74,13 +42,16 @@
         state: present
         filename: "kubernetes"
 
-    # 📌 Install kubectl
+    - name: Update apt package index
+      ansible.builtin.apt:
+        update_cache: yes
+
     - name: Install kubectl
       ansible.builtin.apt:
         name: kubectl
         state: present
 
-    # 📌 Verificare Kubernetes
+    # 📌 Verify Kubernetes installation
     - name: Verify Kubernetes installation
       ansible.builtin.command:
         cmd: kubectl config current-context
@@ -88,19 +59,24 @@
     - debug:
         msg: "Current Kubernetes context: {{ k8s_context.stdout }}"
 
-    # 📌 Creare namespace-uri
-    - name: Create ArgoCD and Jenkins namespaces
+    # 📌 Install ArgoCD
+    - name: Create ArgoCD namespace
       kubernetes.core.k8s:
         kubeconfig: /etc/rancher/k3s/k3s.yaml
+        name: argocd
         api_version: v1
         kind: Namespace
         state: present
-        name: "{{ item }}"
-      loop:
-        - argocd
-        - jenkins
 
-    # 📌 Instalare ArgoCD
+    # 📌 Create Jenkins namespace
+    - name: Create Jenkins namespace
+      kubernetes.core.k8s:
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
+        name: jenkins
+        api_version: v1
+        kind: Namespace
+        state: present
+
     - name: Install ArgoCD
       kubernetes.core.k8s:
         kubeconfig: /etc/rancher/k3s/k3s.yaml
@@ -111,61 +87,70 @@
     - name: Wait for ArgoCD pods to be ready
       command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
 
-    # 📌 Expunere ArgoCD Server
-    - name: Expose ArgoCD Server
+    - name: Expose ArgoCD Server via LoadBalancer
       kubernetes.core.k8s:
         state: present
         definition:
           apiVersion: v1
           kind: Service
           metadata:
-            name: argocd-server
+            name: argocd-server-loadbalancer
             namespace: argocd
           spec:
-            type: "{{ argocd_service_type }}"
+            type: LoadBalancer
             selector:
-              app: argocd
+              app.kubernetes.io/name: argocd-server
             ports:
               - protocol: TCP
                 port: 80
                 targetPort: 443
-                nodePort: "{{ 30080 if argocd_service_type == 'NodePort' else omit }}"  # NodePort doar dacă este cazul
-      environment:
-        kubeconfig: /etc/rancher/k3s/k3s.yaml
 
-    # 📌 Obținere parolă ArgoCD
     - name: Get ArgoCD admin password
       shell: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 --decode
       register: argocd_admin_password
-      ignore_errors: true
+      ignore_errors: true  # This allows the playbook to continue even if the task fails
+
 
     - name: Display ArgoCD login info
       debug:
-        msg: "ArgoCD UI is accessible. Login with 'admin' and password: {{ argocd_admin_password.stdout }}"
+        msg: "ArgoCD UI is accessible via PortF. Login with 'admin' and password: {{ argocd_admin_password.stdout }}"
 
-    # 📌 Creare aplicație ArgoCD pentru Jenkins
+    - name: Verify ArgoCD installation
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - pods
+          - -n
+          - argocd
+      register: argocd_pods
+    - debug:
+        msg: "{{ argocd_pods.stdout }}"
+
+# 📌 Create ArgoCD Application for Jenkins
     - name: Create ArgoCD Application for Jenkins
       kubernetes.core.k8s:
         kubeconfig: /etc/rancher/k3s/k3s.yaml
-        api_version: argoproj.io/v1alpha1
+        api_version: argoproj.io/v1alpha1  # Specificăm versiunea corectă de API pentru ArgoCD
         kind: Application
         state: present
         definition:
-          apiVersion: argoproj.io/v1alpha1
+          apiVersion: argoproj.io/v1alpha1  # Definirea corectă a apiVersion pentru aplicația ArgoCD
           kind: Application
           metadata:
-            name: jenkins
+            name: jenkins  # Numele aplicației
             namespace: argocd
           spec:
             destination:
-              namespace: jenkins
-              server: https://kubernetes.default.svc
+              namespace: jenkins  # Namespace-ul unde se va aplica Jenkins
+              server: https://kubernetes.default.svc  # ArgoCD va implementa în clusterul curent
             source:
-              repoURL: "https://github.com/ionmariana531/sciitdevops.git"
-              targetRevision: "add-terraform-github-actions-Mariana-fe"
-              path: "ansible/Module2/ArgoCD"
-            project: default
+              repoURL: "https://github.com/ionmariana531/sciitdevops.git"  # URL-ul depozitului Git
+              targetRevision: "add-terraform-github-actions-Mariana-fe"  # Ramura din Git care va fi folosită
+              path: "ansible/Module2/ArgoCD"  # Calea către fișierul de configurare Jenkins
+            project: default  # Poate fi un proiect specific ArgoCD, în acest caz, folosim `default`
             syncPolicy:
-              automated:
-                prune: true
-                selfHeal: true
+            automated:
+              prune: true  # Prunează resursele neutilizate
+              selfHeal: true  # Sincronizează automat aplicația când sunt schimbări în repo
+
