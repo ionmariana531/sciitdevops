@@ -99,43 +99,9 @@
     - debug:
         msg: "{{ argocd_pods.stdout }}"
 
-    # Expose ArgoCD server via port-forwarding (no LoadBalancer)
-    - name: Expose ArgoCD server using port-forwarding
-      ansible.builtin.shell: nohup kubectl port-forward svc/argocd-server -n argocd 8080:443 > /dev/null 2>&1 & 
-      async: 600
-      poll: 0
-      changed_when: true
-
-    - name: Install Helm
-      shell: |
-        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-      args:
-        executable: /bin/bash
-
-    - name: Add ArgoCD Helm repository
-      kubernetes.core.helm_repository:
-        name: argo
-        repo_url: https://argoproj.github.io/argo-helm
-        state: present
-
-    - name: Add Jenkins Helm repository to ArgoCD
+    - name: Create ArgoCD Application for Jenkins
       kubernetes.core.k8s:
-        kubeconfig: /etc/rancher/k3s/k3s.yaml 
-        definition:
-          apiVersion: argoproj.io/v1alpha1
-          kind: Repository
-          metadata:
-            name: jenkins-helm-repo
-            namespace: argocd
-          spec:
-            type: helm
-            url: https://charts.jenkins.io
         state: present
-        wait: true
-
-    - name: Create the ArgoCD Application for Jenkins
-      kubernetes.core.k8s:
-        kubeconfig: /etc/rancher/k3s/k3s.yaml 
         definition:
           apiVersion: argoproj.io/v1alpha1
           kind: Application
@@ -144,16 +110,37 @@
             namespace: argocd
           spec:
             destination:
-              name: ''
               namespace: jenkins
               server: https://kubernetes.default.svc
+            project: default
             source:
-              repoURL: https://github.com/helm/charts
-              targetRevision: master
+              repoURL: https://charts.jenkins.io
+              targetRevision: "5.8.6"  # Ensure this is a valid version
               chart: jenkins
+              helm:
+                values: |
+                  controller:
+                    image:
+                      registry: docker.io
+                      repository: cristid9/custom-jenkins
+                      tag: latest
+                    serviceType: LoadBalancer
+                    admin:
+                      username: "admin"
+                      password: "admin"  # Plain text (not recommended)
+                    installPlugins:
+                      - git:5.7.0
+                      - kubernetes:1.30.1
+                      - ssh:158.ve2a_e90fb_7319
+                      - ssh-agent:384.ve275343791a_6
+                      - ssh-steps:2.0.79.v1d1b_5f76dda_8
+                  podSecurityContextOverride:
+                    runAsNonRoot: true
+                    runAsUser: 1000
+                    supplementalGroups: [1000]
+
             syncPolicy:
               automated:
-                prune: true
                 selfHeal: true
-        state: present
-        wait: true
+                prune: true
+
