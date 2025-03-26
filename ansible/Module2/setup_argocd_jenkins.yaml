@@ -7,19 +7,47 @@
 
   tasks:
 
-    # 📌 Instalare pachete necesare
+    # 📌 Install Kubernetes Python package using apt
+    - name: Install kubernetes Python package using apt
+      ansible.builtin.package:
+        name: python3-kubernetes
+        state: present
+
+    - name: Update apt package index
+      ansible.builtin.apt:
+        update_cache: yes
+
     - name: Install required packages
       ansible.builtin.apt:
         name:
-          - python3-kubernetes
           - apt-transport-https
           - ca-certificates
           - curl
           - gnupg
         state: present
+
+    - name: Ensure /etc/apt/keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Add Kubernetes apt key
+      ansible.builtin.apt_key:
+        url: https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key
+        keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        state: present
+
+    - name: Add Kubernetes apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /"
+        state: present
+        filename: "kubernetes"
+
+    - name: Update apt package index
+      ansible.builtin.apt:
         update_cache: yes
 
-    # 📌 Instalare kubectl
     - name: Install kubectl
       ansible.builtin.apt:
         name: kubectl
