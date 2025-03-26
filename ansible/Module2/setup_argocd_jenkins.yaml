@@ -103,6 +103,8 @@
                 port: 80
                 targetPort: 443
                 nodePort: "{{ 30080 if argocd_service_type == 'NodePort' else omit }}"  # NodePort doar dacă este cazul
+      environment:
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
 
     # 📌 Obținere parolă ArgoCD
     - name: Get ArgoCD admin password
