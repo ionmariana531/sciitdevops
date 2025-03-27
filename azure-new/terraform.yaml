@@ -1,0 +1,49 @@
+name: Terraform CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Step 2: Set up Terraform
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.4.6  # Specifică versiunea de Terraform pe care vrei să o folosești
+
+      # Step 3: Azure Login - Authenticate with Azure using service principal
+      - name: 'Login to Azure'
+        uses: azure/login@v1
+        with:
+          app-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      # Step 4: Terraform Init
+      - name: Terraform Init
+        run: terraform init
+
+      # Step 5: Terraform Plan
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+
+      # Step 6: Terraform Apply (deploy infrastructure)
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+
+      # Step 7: Output public IP (optional)
+      - name: Output Public IP
+        run: |
+          echo "Public IP: $(terraform output test_vm_public_ip)"
