@@ -94,6 +94,14 @@ jobs:
             sudo apt install -y ansible
           EOF
 
+      - name: Modify permissions for k3s.yaml on EC2
+        run: |
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          ssh -i ~/.ssh/app-ssh-key.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@$INSTANCE_IP << 'EOF'
+            sudo chmod 644 /etc/rancher/k3s/k3s.yaml
+            sudo chown root:root /etc/rancher/k3s/k3s.yaml
+          EOF
+
       - name: Install Ansible collections on the runner
         run: |
           ansible-galaxy collection install kubernetes.core
