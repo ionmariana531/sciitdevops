@@ -15,6 +15,14 @@
         state: started
         enabled: yes
 
+    - name: Modify permissions for k3s.yaml
+      file:
+        path: /etc/rancher/k3s/k3s.yaml
+        owner: root
+        group: root
+        mode: '0644'
+      become: yes
+
     - name: Change permissions for kubeconfig file
       file:
         path: /etc/rancher/k3s/k3s.yaml
