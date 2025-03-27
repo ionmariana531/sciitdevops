@@ -59,6 +59,35 @@
     - debug:
         msg: "Current Kubernetes context: {{ k8s_context.stdout }}"
 
+    # 📌 Check Kubernetes user identity
+    - name: Get current Kubernetes user
+      ansible.builtin.command:
+        cmd: kubectl config view --minify --output 'jsonpath={..user}'
+      register: k8s_user
+
+    - debug:
+        msg: "Current Kubernetes user: {{ k8s_user.stdout }}"
+
+    # 📌 Check if Ansible user can list pods
+    - name: Check if user can list pods
+      ansible.builtin.command:
+        cmd: kubectl auth can-i list pods --all-namespaces
+      register: auth_check_pods
+      ignore_errors: yes
+
+    - debug:
+        msg: "Permission to list pods: {{ auth_check_pods.stdout }}"
+
+    # 📌 Check if Ansible user can create services
+    - name: Check if user can create services
+      ansible.builtin.command:
+        cmd: kubectl auth can-i create services --all-namespaces
+      register: auth_check_services
+      ignore_errors: yes
+
+    - debug:
+        msg: "Permission to create services: {{ auth_check_services.stdout }}"
+
     # 📌 Install ArgoCD
     - name: Create ArgoCD namespace
       kubernetes.core.k8s:
@@ -131,26 +160,26 @@
     - name: Create ArgoCD Application for Jenkins
       kubernetes.core.k8s:
         kubeconfig: /etc/rancher/k3s/k3s.yaml
-        api_version: argoproj.io/v1alpha1  # Specificăm versiunea corectă de API pentru ArgoCD
+        api_version: argoproj.io/v1alpha1 
         kind: Application
         state: present
         definition:
-          apiVersion: argoproj.io/v1alpha1  # Definirea corectă a apiVersion pentru aplicația ArgoCD
+          apiVersion: argoproj.io/v1alpha1
           kind: Application
           metadata:
-            name: jenkins  # Numele aplicației
+            name: jenkins 
             namespace: argocd
           spec:
             destination:
-              namespace: jenkins  # Namespace-ul unde se va aplica Jenkins
-              server: https://kubernetes.default.svc  # ArgoCD va implementa în clusterul curent
+              namespace: jenkins
+              server: https://kubernetes.default.svc
             source:
-              repoURL: "https://github.com/ionmariana531/sciitdevops.git"  # URL-ul depozitului Git
-              targetRevision: "add-terraform-github-actions-Mariana-fe"  # Ramura din Git care va fi folosită
-              path: "ansible/Module2/ArgoCD"  # Calea către fișierul de configurare Jenkins
-            project: default  # Poate fi un proiect specific ArgoCD, în acest caz, folosim `default`
+              repoURL: "https://github.com/ionmariana531/sciitdevops.git"
+              targetRevision: "add-terraform-github-actions-Mariana-fe"
+              path: "ansible/Module2/ArgoCD" 
+            project: default 
             syncPolicy:
             automated:
-              prune: true  # Prunează resursele neutilizate
-              selfHeal: true  # Sincronizează automat aplicația când sunt schimbări în repo
+              prune: true
+              selfHeal: true 
 
