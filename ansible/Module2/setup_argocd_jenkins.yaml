@@ -114,6 +114,26 @@
         kind: Namespace
         state: present
 
+    - name: Expose Jenkins via NodePort
+      kubernetes.core.k8s:
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: jenkins
+            namespace: jenkins
+          spec:
+            type: NodePort
+            selector:
+              app: jenkins
+            ports:
+              - protocol: TCP
+                port: 8080
+                targetPort: 8080
+                nodePort: 30080  
+
     - name: Install ArgoCD
       kubernetes.core.k8s:
         kubeconfig: /etc/rancher/k3s/k3s.yaml
@@ -125,25 +145,6 @@
       shell: |
         export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
         kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
-
-    - name: Expose ArgoCD Server via LoadBalancer
-      kubernetes.core.k8s:
-        kubeconfig: /etc/rancher/k3s/k3s.yaml
-        state: present
-        definition:
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: argocd-server-loadbalancer
-            namespace: argocd
-          spec:
-            type: LoadBalancer
-            selector:
-              app.kubernetes.io/name: argocd-server
-            ports:
-              - protocol: TCP
-                port: 80
-                targetPort: 443
 
     - name: Get ArgoCD admin password
       shell: |
@@ -164,7 +165,6 @@
     - debug:
         msg: "{{ argocd_pods.stdout }}"
 
-    # 📌 Create ArgoCD Application for Jenkins
     - name: Create ArgoCD Application for Jenkins
       kubernetes.core.k8s:
         kubeconfig: /etc/rancher/k3s/k3s.yaml
