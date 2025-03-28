@@ -1,9 +1,8 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: jenkins
-  namespace: jenkins  # 🔹 Am actualizat namespace-ul
+  namespace: jenkins
 spec:
   replicas: 1
   selector:
@@ -21,9 +20,7 @@ spec:
             - containerPort: 8080
           volumeMounts:
             - mountPath: /var/jenkins_home
-              name: jenkins-home
+              name: jenkins-home  # Mount the volume inside the container
       volumes:
         - name: jenkins-home
-          persistentVolumeClaim:
-            claimName: jenkins-pvc
-
+          emptyDir: {}  # This creates a temporary storage for the pod
