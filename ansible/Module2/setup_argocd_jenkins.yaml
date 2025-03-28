@@ -51,40 +51,48 @@
         name: kubectl
         state: present
 
+    # 📌 Set KUBECONFIG environment variable
+    - name: Set KUBECONFIG environment variable
+      shell: export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+      args:
+        executable: /bin/bash
+      become: yes
+
     # 📌 Verify Kubernetes installation
     - name: Verify Kubernetes installation
-      ansible.builtin.command:
-        cmd: kubectl config current-context
+      shell: |
+        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+        kubectl config current-context
       register: k8s_context
     - debug:
         msg: "Current Kubernetes context: {{ k8s_context.stdout }}"
 
     # 📌 Check Kubernetes user identity
     - name: Get current Kubernetes user
-      ansible.builtin.command:
-        cmd: kubectl config view --minify --output 'jsonpath={..user}'
+      shell: |
+        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+        kubectl config view --minify --output 'jsonpath={..user}'
       register: k8s_user
-
     - debug:
         msg: "Current Kubernetes user: {{ k8s_user.stdout }}"
 
     # 📌 Check if Ansible user can list pods
     - name: Check if user can list pods
-      ansible.builtin.command:
-        cmd: kubectl auth can-i list pods --all-namespaces
+      shell: |
+        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+        kubectl auth can-i list pods --all-namespaces
       register: auth_check_pods
       ignore_errors: yes
-
     - debug:
         msg: "Permission to list pods: {{ auth_check_pods.stdout }}"
 
     # 📌 Check if Ansible user can create services
     - name: Check if user can create services
-      ansible.builtin.command:
-        cmd: kubectl auth can-i create services --all-namespaces
+      shell: |
+        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+        kubectl auth can-i create services --all-namespaces
       register: auth_check_services
       ignore_errors: yes
-
     - debug:
         msg: "Permission to create services: {{ auth_check_services.stdout }}"
 
@@ -114,10 +122,13 @@
         namespace: argocd
 
     - name: Wait for ArgoCD pods to be ready
-      command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+      shell: |
+        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
 
     - name: Expose ArgoCD Server via LoadBalancer
       kubernetes.core.k8s:
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
         state: present
         definition:
           apiVersion: v1
@@ -135,39 +146,36 @@
                 targetPort: 443
 
     - name: Get ArgoCD admin password
-      shell: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 --decode
+      shell: |
+        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+        kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 --decode
       register: argocd_admin_password
       ignore_errors: true  # This allows the playbook to continue even if the task fails
-
 
     - name: Display ArgoCD login info
       debug:
         msg: "ArgoCD UI is accessible via PortF. Login with 'admin' and password: {{ argocd_admin_password.stdout }}"
 
     - name: Verify ArgoCD installation
-      ansible.builtin.command:
-        argv:
-          - kubectl
-          - get
-          - pods
-          - -n
-          - argocd
+      shell: |
+        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+        kubectl get pods -n argocd
       register: argocd_pods
     - debug:
         msg: "{{ argocd_pods.stdout }}"
 
-# 📌 Create ArgoCD Application for Jenkins
+    # 📌 Create ArgoCD Application for Jenkins
     - name: Create ArgoCD Application for Jenkins
       kubernetes.core.k8s:
         kubeconfig: /etc/rancher/k3s/k3s.yaml
-        api_version: argoproj.io/v1alpha1 
+        api_version: argoproj.io/v1alpha1
         kind: Application
         state: present
         definition:
           apiVersion: argoproj.io/v1alpha1
           kind: Application
           metadata:
-            name: jenkins 
+            name: jenkins
             namespace: argocd
           spec:
             destination:
@@ -176,10 +184,9 @@
             source:
               repoURL: "https://github.com/ionmariana531/sciitdevops.git"
               targetRevision: "add-terraform-github-actions-Mariana-fe"
-              path: "ansible/Module2/ArgoCD" 
-            project: default 
+              path: "ansible/Module2/ArgoCD"
+            project: default
             syncPolicy:
-            automated:
-              prune: true
-              selfHeal: true 
-
+              automated:
+                prune: true
+                selfHeal: true
