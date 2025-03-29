@@ -67,6 +67,11 @@ resource "aws_instance" "Instance1" {
   vpc_security_group_ids = [data.aws_security_group.existing_sg.id]
   key_name               = data.aws_key_pair.existing_key.key_name
 
+ root_block_device {
+    volume_size = 20  # Setează 20GB pentru root volume
+    volume_type = "gp3"
+  }
+
   tags = {
     Name = "Instance-1"
     "Master-Node" = "true"
