@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+
+    triggers {
+        githubPush()
+    }
+
     environment {
         REPO_URL = 'https://github.com/ionmariana531/sciitdevops.git'
         BRANCH_NAME = 'add-terraform-github-actions-Mariana-fe'
