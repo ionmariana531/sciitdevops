@@ -10,8 +10,10 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    // Clonăm repo-ul de pe GitHub
-                    checkout scm
+                    // Clonăm repo-ul de pe GitHub folosind variabilele de mediu
+                    checkout([$class: 'GitSCM', 
+                              branches: [[name: env.BRANCH_NAME]], 
+                              userRemoteConfigs: [[url: env.REPO_URL]]])
                 }
             }
         }
