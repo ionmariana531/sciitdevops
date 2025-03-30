@@ -106,7 +106,7 @@ data "aws_s3_bucket" "argocd_password_bucket" {
   bucket = "my-argocd-bucket"  # Numele bucket-ului tău creat manual
 }
 
-# Output the S3 bucket name
-output "s3_bucket_name" {
+# Output the S3 bucket name with the correct name
+output "my-argocd-bucket" {
   value = data.aws_s3_bucket.argocd_password_bucket.bucket
 }
