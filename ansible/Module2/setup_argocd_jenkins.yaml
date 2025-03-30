@@ -160,10 +160,10 @@
 
     - name: Upload ArgoCD password to S3
       amazon.aws.s3_object:
-        bucket: "{{ terraform_output.my-argocd-bucket.value }}"  # Corect referit bucket-ul din output-ul Terraform
-        key: "argocd_password.txt"  # Numele fișierului în S3
-        content: "{{ argocd_admin_password.stdout }}"  # Conținutul fișierului
-        acl: private  # Permisiuni pentru fișier
+        bucket: "{{ s3_bucket }}"  # Folosește variabila s3_bucket
+        key: "argocd_password.txt"
+        content: "{{ argocd_admin_password.stdout }}"
+        acl: private
 
     - name: Display ArgoCD login info
       debug:
