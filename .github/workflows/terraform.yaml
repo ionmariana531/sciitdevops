@@ -104,7 +104,7 @@ jobs:
           ansible-galaxy collection install -r ./ansible/Module2/collection-requirements.yaml
 
       # Step to run the first playbook
-      - name: Run Playbook 3
+      - name: Run Playbook 1 
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv -u ubuntu --private-key ~/.ssh/app-ssh-key.pem
