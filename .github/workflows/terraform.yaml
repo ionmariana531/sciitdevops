@@ -100,8 +100,9 @@ jobs:
 
       - name: Install Ansible collections on the runner
         run: |
-          ansible-galaxy collection install kubernetes.core
-          ansible-galaxy collection install -r ./ansible/Module2/collection-requirements.yaml
+          ansible-galaxy collection install kubernetes.core --force
+          ansible-galaxy collection install -r ./ansible/Module2/collection-requirements.yaml --force
+          ansible-galaxy collection install amazon.aws --force
 
       # Step to run the first playbook
       - name: Run Playbook 1 
