@@ -123,12 +123,11 @@ jobs:
       - name: Run Playbook 3
         run: |
           # Obține doar bucket-ul S3 din output-ul Terraform
-          S3_BUCKET=$(terraform output -json my-argocd-bucket | jq -r '.value')
-          
+          S3_BUCKET=$(terraform output -raw my-argocd-bucket)
+
           # Verifică dacă ai obținut bucket-ul corect
           echo "S3 Bucket: $S3_BUCKET"
-          
+
           # Rulează playbook-ul Ansible, transmițând doar bucket-ul S3
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
           ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv -u ubuntu --private-key ~/.ssh/app-ssh-key.pem -e "s3_bucket=$S3_BUCKET"
-
