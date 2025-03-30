@@ -159,7 +159,7 @@
         dest: "/tmp/argocd_password.txt"
 
     - name: Upload ArgoCD password to S3
-      amazon.aws.s3:
+      amazon.aws:
         bucket: "{{ terraform_output.s3_bucket_name.value }}"
         object: "argocd_password.txt"
         content: "{{ argocd_admin_password.stdout }}"
