@@ -164,7 +164,6 @@
         bucket: "{{ s3_bucket }}"  # Folosește variabila s3_bucket
         object: "argocd_password.txt"
         src: "/tmp/argocd_password.txt"  # Calea către fișierul local
-        acl: private
         mode: put
 
     - name: Display ArgoCD login info
