@@ -136,5 +136,8 @@ jobs:
         run: |
           S3_BUCKET=$(terraform output -raw my-argocd-bucket)
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+          AWS_REGION=eu-west-1 \
           ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv -u ubuntu --private-key ~/.ssh/app-ssh-key.pem -e "s3_bucket=$S3_BUCKET"
 
