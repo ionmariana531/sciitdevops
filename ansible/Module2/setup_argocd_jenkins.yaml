@@ -5,7 +5,7 @@
     ansible_python_interpreter: /usr/bin/python3
   tasks:
 
-    # 📌 Install Kubernetes Python package using apt
+    # Install Kubernetes Python package using apt
     - name: Install kubernetes Python package using apt
       ansible.builtin.package:
         name: python3-kubernetes
