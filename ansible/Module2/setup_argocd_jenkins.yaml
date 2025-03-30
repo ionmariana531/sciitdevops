@@ -24,6 +24,14 @@
           - gnupg
         state: present
 
+    # Install s3fs
+    - name: Install s3fs
+      become: yes
+      apt:
+        name: s3fs
+        state: present
+      when: ansible_facts['distribution'] == 'Ubuntu'
+
     - name: Ensure /etc/apt/keyrings directory exists
       ansible.builtin.file:
         path: /etc/apt/keyrings
@@ -146,6 +154,30 @@
         export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
         kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
 
+        #    - name: Get ArgoCD admin password
+        #shell: |
+        #export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+        #kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 --decode
+        # register: argocd_admin_password
+        #ignore_errors: true  # This allows the playbook to continue even if the task fails
+
+        # - name: Save ArgoCD password to a file
+        #copy:
+        # content: "{{ argocd_admin_password.stdout }}"
+        #dest: "/tmp/argocd_password.txt"
+        #mode: "0644"
+
+        #- name: Upload ArgoCD password to S3
+        #amazon.aws.s3_object:
+        #bucket: "{{ s3_bucket }}"  # Folosește variabila s3_bucket
+        # object: "argocd_password.txt"
+        #src: "/tmp/argocd_password.txt"  # Calea către fișierul local
+        #mode: put
+
+        #- name: Display ArgoCD login info
+        #debug:
+        #msg: "ArgoCD UI is accessible via PortF. Login with 'admin' and password: {{ argocd_admin_password.stdout }}"
+    # Get ArgoCD admin password
     - name: Get ArgoCD admin password
       shell: |
         export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
@@ -153,12 +185,14 @@
       register: argocd_admin_password
       ignore_errors: true  # This allows the playbook to continue even if the task fails
 
+    # Save ArgoCD password to a file
     - name: Save ArgoCD password to a file
       copy:
         content: "{{ argocd_admin_password.stdout }}"
         dest: "/tmp/argocd_password.txt"
         mode: "0644"
 
+    # Upload ArgoCD password to S3
     - name: Upload ArgoCD password to S3
       amazon.aws.s3_object:
         bucket: "{{ s3_bucket }}"  # Folosește variabila s3_bucket
@@ -166,6 +200,7 @@
         src: "/tmp/argocd_password.txt"  # Calea către fișierul local
         mode: put
 
+    # Display ArgoCD login info
     - name: Display ArgoCD login info
       debug:
         msg: "ArgoCD UI is accessible via PortF. Login with 'admin' and password: {{ argocd_admin_password.stdout }}"
