@@ -91,17 +91,6 @@ resource "aws_instance" "Instance1" {
 #  }
 #}
 
-#resource "aws_instance" "Instance3" {
-#  ami                    = "ami-03fd334507439f4d1"
-#  instance_type          = "t2.micro"
-#  subnet_id              = data.aws_subnet.Subnet-VPC.id
-#  vpc_security_group_ids = [data.aws_security_group.existing_sg.id]
-#  key_name               = data.aws_key_pair.existing_key.key_name
-
-#  tags = {
-#    Name = "Instance-3"
-#  }
-#}
 
 # Output added
 output "instance_ips" {
