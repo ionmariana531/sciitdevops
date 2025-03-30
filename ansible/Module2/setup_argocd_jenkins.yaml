@@ -32,6 +32,27 @@
         state: present
       when: ansible_facts['distribution'] == 'Ubuntu'
 
+    # Create a directory for mounting S3
+    - name: Create S3 mount directory
+      become: yes
+      file:
+        path: "/mnt/s3"
+        state: directory
+        mode: "0755"
+
+    # Mount S3 bucket using s3fs
+    - name: Mount S3 bucket
+      become: yes
+      shell: |
+        echo "{{ AWS_ACCESS_KEY_ID }}:{{ AWS_SECRET_ACCESS_KEY }}" > /etc/passwd-s3fs
+        chmod 600 /etc/passwd-s3fs
+        s3fs my-argocd-bucket /mnt/s3 -o passwd_file=/etc/passwd-s3fs -o allow_other -o endpoint=eu-west-1 
+      args:
+        creates: "/mnt/s3"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ secrets.AWS_ACCESS_KEY_ID }}"
+        AWS_SECRET_ACCESS_KEY: "{{ secrets.AWS_SECRET_ACCESS_KEY }}"
+
     - name: Ensure /etc/apt/keyrings directory exists
       ansible.builtin.file:
         path: /etc/apt/keyrings
@@ -50,61 +71,69 @@
         state: present
         filename: "kubernetes"
 
-    - name: Update apt package index
-      ansible.builtin.apt:
-        update_cache: yes
+          #    - name: Update apt package index
+          #ansible.builtin.apt:
+          #update_cache: yes
 
     - name: Install kubectl
       ansible.builtin.apt:
         name: kubectl
         state: present
 
-    # 📌 Set KUBECONFIG environment variable
-    - name: Set KUBECONFIG environment variable
-      shell: export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-      args:
-        executable: /bin/bash
-      become: yes
+    # Create Jenkins namespace
+    - name: Create Jenkins namespace
+      kubernetes.core.k8s:
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
+        name: jenkins
+        api_version: v1
+        kind: Namespace
+        state: present
 
-    # 📌 Verify Kubernetes installation
-    - name: Verify Kubernetes installation
-      shell: |
-        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-        kubectl config current-context
-      register: k8s_context
-    - debug:
-        msg: "Current Kubernetes context: {{ k8s_context.stdout }}"
+    #  Set KUBECONFIG environment variable
+    # - name: Set KUBECONFIG environment variable
+    #  shell: export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    #  args:
+    #    executable: /bin/bash
+    #  become: yes
 
-    # 📌 Check Kubernetes user identity
-    - name: Get current Kubernetes user
-      shell: |
-        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-        kubectl config view --minify --output 'jsonpath={..user}'
-      register: k8s_user
-    - debug:
-        msg: "Current Kubernetes user: {{ k8s_user.stdout }}"
+    #  Verify Kubernetes installation
+    #- name: Verify Kubernetes installation
+    #  shell: |
+    #    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    #    kubectl config current-context
+    #  register: k8s_context
+    #- debug:
+    #    msg: "Current Kubernetes context: {{ k8s_context.stdout }}"
+
+    #  Check Kubernetes user identity
+    #- name: Get current Kubernetes user
+    #  shell: |
+    #    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    #    kubectl config view --minify --output 'jsonpath={..user}'
+    #  register: k8s_user
+    #- debug:
+    #    msg: "Current Kubernetes user: {{ k8s_user.stdout }}"
 
     # Check if Ansible user can list pods
-    - name: Check if user can list pods
-      shell: |
-        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-        kubectl auth can-i list pods --all-namespaces
-      register: auth_check_pods
-      ignore_errors: yes
-    - debug:
-        msg: "Permission to list pods: {{ auth_check_pods.stdout }}"
+    # - name: Check if user can list pods
+    #  shell: |
+    #    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    #    kubectl auth can-i list pods --all-namespaces
+    #  register: auth_check_pods
+    #  ignore_errors: yes
+    #- debug:
+    #    msg: "Permission to list pods: {{ auth_check_pods.stdout }}"
 
     # 📌 Check if Ansible user can create services
-    - name: Check if user can create services
-      shell: |
-        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-        kubectl auth can-i create services --all-namespaces
-      register: auth_check_services
-      ignore_errors: yes
-    - debug:
-        msg: "Permission to create services: {{ auth_check_services.stdout }}"
-
-    # 📌 Install ArgoCD
+    #- name: Check if user can create services
+    #  shell: |
+    #    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    #    kubectl auth can-i create services --all-namespaces
+    #  register: auth_check_services
+    #  ignore_errors: yes
+    #- debug:
+    #    msg: "Permission to create services: {{ auth_check_services.stdout }}"
+    # Create ArgoCD namespace
     - name: Create ArgoCD namespace
       kubernetes.core.k8s:
         kubeconfig: /etc/rancher/k3s/k3s.yaml
@@ -113,7 +142,7 @@
         kind: Namespace
         state: present
 
-    # 📌 Install ArgoCD
+    # Install ArgoCD
     - name: Install ArgoCD
       kubernetes.core.k8s:
         kubeconfig: /etc/rancher/k3s/k3s.yaml
@@ -122,33 +151,53 @@
         namespace: argocd
 
     # 📌 Wait for ArgoCD pods to be ready (plasează acest task după ce ArgoCD este instalat)
+    #- name: Wait for ArgoCD pods to be ready
+    #  shell: |
+    #    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    #    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+    #
     - name: Wait for ArgoCD pods to be ready
       shell: |
-        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+        kubectl wait --kubeconfig=/etc/rancher/k3s/k3s.yaml \
+        --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
 
     # Get ArgoCD admin password (mută acest task după așteptarea podurilor)
-    - name: Get ArgoCD admin password
-      shell: |
-        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-        kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 --decode
-      register: argocd_admin_password
-      ignore_errors: true  # This allows the playbook to continue even if the task fails
+    #    - name: Get ArgoCD admin password
+    #  shell: |
+    #    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    #    kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 --decode
+    #  register: argocd_admin_password
+    #  ignore_errors: true  # This allows the playbook to continue even if the task fails
 
     # Save ArgoCD password to a file
-    - name: Save ArgoCD password to a file
-      copy:
-        content: "{{ argocd_admin_password.stdout }}"
-        dest: "/tmp/argocd_password.txt"
-        mode: "0644"
+    #- name: Save ArgoCD password to a file
+    #  copy:
+    #    content: "{{ argocd_admin_password.stdout }}"
+    #    dest: "/tmp/argocd_password.txt"
+    #    mode: "0644"
 
     # Upload ArgoCD password to S3
-    - name: Upload ArgoCD password to S3
-      amazon.aws.s3_object:
-        bucket: "{{ s3_bucket }}"  # Folosește variabila s3_bucket
-        object: "argocd_password.txt"
-        src: "/tmp/argocd_password.txt"  # Calea către fișierul local
-        mode: put
+    #- name: Upload ArgoCD password to S3
+    #  amazon.aws.s3_object:
+    #    bucket: "{{ s3_bucket }}"  # Folosește variabila s3_bucket
+    #    object: "argocd_password.txt"
+    #    src: "/tmp/argocd_password.txt"  # Calea către fișierul local
+    #    mode: put
+    # Get ArgoCD admin password
+    - name: Get ArgoCD admin password
+      shell: |
+        kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
+        -n argocd get secret argocd-initial-admin-secret \
+        -o jsonpath='{.data.password}' | base64 --decode
+      register: argocd_admin_password
+      ignore_errors: true
+
+    # Save ArgoCD password to a file on S3
+    - name: Save ArgoCD password to S3
+      copy:
+        content: "{{ argocd_admin_password.stdout }}"
+        dest: "/mnt/s3/argocd_password.txt"
+        mode: "0644"
 
     # Display ArgoCD login info
     - name: Display ArgoCD login info
@@ -157,11 +206,8 @@
 
     - name: Verify ArgoCD installation
       shell: |
-        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-        kubectl get pods -n argocd
+        kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml get pods -n argocd
       register: argocd_pods
-    - debug:
-        msg: "{{ argocd_pods.stdout }}"
 
     - name: Create ArgoCD Application for Jenkins
       kubernetes.core.k8s:
