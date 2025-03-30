@@ -112,3 +112,26 @@ output "instance_ips" {
   ]
 }
 
+# Create S3 bucket for ArgoCD password
+resource "aws_s3_bucket" "argocd_password_bucket" {
+  bucket = "my-argocd-password-bucket" # Asigură-te că numele este unic în AWS
+  acl    = "private"
+
+  tags = {
+    Name        = "argocd-password-bucket"
+    Environment = "Production"
+  }
+}
+
+# Upload ArgoCD password file to S3
+resource "aws_s3_object" "argocd_password" {
+  bucket = aws_s3_bucket.argocd_password_bucket.bucket
+  key    = "argocd_password.txt"
+  source = "/tmp/argocd_password.txt"  # Înlocuiește cu calea corectă către fișier
+  acl    = "private"
+}
+
+# Output the S3 bucket name
+output "s3_bucket_name" {
+  value = aws_s3_bucket.argocd_password_bucket.bucket
+}

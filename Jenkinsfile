@@ -14,7 +14,6 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    // Clonăm repo-ul de pe GitHub
                     checkout([$class: 'GitSCM',
                               branches: [[name: env.BRANCH_NAME]],
                               userRemoteConfigs: [[url: env.REPO_URL]]])
@@ -67,10 +66,21 @@ pipeline {
             }
         }
 
+        stage('ArgoCD Sync') {
+            steps {
+                script {
+                    // Sincronizează aplicația cu ArgoCD
+                    sh '''
+                    argocd login argocd-server --username admin --password $ARGOCD_PASSWORD --insecure
+                    argocd app sync weather-app --prune --strategy apply
+                    '''
+                }
+            }
+        }
+
         stage('Notify Success') {
             steps {
                 script {
-                    // Trimitere notificare succes
                     echo "Deployment successful!"
                 }
             }
@@ -84,11 +94,9 @@ pipeline {
             }
             steps {
                 script {
-                    // Trimitere notificare eroare
                     echo "Pipeline failed!"
                 }
             }
         }
     }
 }
-

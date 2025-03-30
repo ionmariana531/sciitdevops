@@ -153,6 +153,18 @@
       register: argocd_admin_password
       ignore_errors: true  # This allows the playbook to continue even if the task fails
 
+    - name: Save ArgoCD password to a file
+      copy:
+        content: "{{ argocd_admin_password.stdout }}"
+        dest: "/tmp/argocd_password.txt"
+
+    - name: Upload ArgoCD password to S3
+      amazon.aws.s3:
+        bucket: "{{ s3_bucket_name }}"
+        object: "argocd_password.txt"
+        content: "{{ argocd_admin_password.stdout }}"
+        acl: "private"
+
     - name: Display ArgoCD login info
       debug:
         msg: "ArgoCD UI is accessible via PortF. Login with 'admin' and password: {{ argocd_admin_password.stdout }}"
