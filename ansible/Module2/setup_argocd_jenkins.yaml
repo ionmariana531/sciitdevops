@@ -157,14 +157,15 @@
       copy:
         content: "{{ argocd_admin_password.stdout }}"
         dest: "/tmp/argocd_password.txt"
+        mode: "0644"
 
     - name: Upload ArgoCD password to S3
       amazon.aws.s3_object:
         bucket: "{{ s3_bucket }}"  # Folosește variabila s3_bucket
         key: "argocd_password.txt"
-        content: "{{ argocd_admin_password.stdout }}"
+        src: "/tmp/argocd_password.txt"  # Calea către fișierul local
         acl: private
-        mode: "put"
+        mode: put
 
     - name: Display ArgoCD login info
       debug:
