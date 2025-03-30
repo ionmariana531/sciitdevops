@@ -160,7 +160,7 @@
 
     - name: Upload ArgoCD password to S3
       amazon.aws.s3:
-        bucket: "{{ s3_bucket_name }}"
+        bucket: "{{ terraform_output.s3_bucket_name.value }}"
         object: "argocd_password.txt"
         content: "{{ argocd_admin_password.stdout }}"
         acl: "private"
