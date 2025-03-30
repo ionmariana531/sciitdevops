@@ -164,7 +164,7 @@
         key: "argocd_password.txt"
         content: "{{ argocd_admin_password.stdout }}"
         acl: private
-        mode: "0644"
+        mode: "put"
 
     - name: Display ArgoCD login info
       debug:
