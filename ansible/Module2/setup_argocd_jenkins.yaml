@@ -76,7 +76,7 @@
     - debug:
         msg: "Current Kubernetes user: {{ k8s_user.stdout }}"
 
-    # 📌 Check if Ansible user can list pods
+    # Check if Ansible user can list pods
     - name: Check if user can list pods
       shell: |
         export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
