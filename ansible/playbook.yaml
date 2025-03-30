@@ -7,5 +7,5 @@
     - ssh_setup
     - docker
     - git
-      #    - k3s  # Adăugăm k3s la final, după Docker
+    - k3s  # Adăugăm k3s la final, după Docker
 
