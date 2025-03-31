@@ -32,6 +32,12 @@
         state: present
       when: ansible_facts['distribution'] == 'Ubuntu'
 
+    - name: Create mount directory
+      file:
+        path: /mnt/s3
+        state: directory
+        mode: '0755'
+
     - name: Mount S3 bucket
       become: yes
       shell: |
