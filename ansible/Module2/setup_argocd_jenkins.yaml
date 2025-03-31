@@ -32,30 +32,37 @@
         state: present
       when: ansible_facts['distribution'] == 'Ubuntu'
 
-    # Create a directory for mounting S3
-    - name: Create S3 mount directory
-      become: yes
-      file:
-        path: "/mnt/s3"
-        state: directory
-        mode: "0755"
-
-    - name: Debug AWS credentials
-      debug:
-        msg: "AWS_ACCESS_KEY_ID: {{ lookup('env', 'AWS_ACCESS_KEY_ID') }} | AWS_SECRET_ACCESS_KEY: {{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
-
-    # Mount S3 bucket using s3fs
     - name: Mount S3 bucket
       become: yes
       shell: |
-        echo "{{ AWS_ACCESS_KEY_ID }}:{{ AWS_SECRET_ACCESS_KEY }}" > /etc/passwd-s3fs
-        chmod 600 /etc/passwd-s3fs
-        s3fs my-argocd-bucket /mnt/s3 -o passwd_file=/etc/passwd-s3fs -o allow_other -o endpoint=eu-west-1 
+        s3fs my-argocd-bucket /mnt/s3 -o passwd_file=/etc/passwd-s3fs -o allow_other -o endpoint=eu-west-1
       args:
         creates: "/mnt/s3"
-      environment:
-        AWS_ACCESS_KEY_ID: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
-        AWS_SECRET_ACCESS_KEY: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+
+    # Create a directory for mounting S3
+    #- name: Create S3 mount directory
+    #  become: yes
+    #  file:
+    #    path: "/mnt/s3"
+    #    state: directory
+    #    mode: "0755"
+
+          #    - name: Debug AWS credentials
+          #debug:
+          #msg: "AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }} | AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+
+    # Mount S3 bucket using s3fs
+    #- name: Mount S3 bucket
+    #  become: yes
+    #  shell: |
+    #    echo "{{ AWS_ACCESS_KEY_ID }}:{{ AWS_SECRET_ACCESS_KEY }}" > /etc/passwd-s3fs
+    #    chmod 600 /etc/passwd-s3fs
+    #    s3fs my-argocd-bucket /mnt/s3 -o passwd_file=/etc/passwd-s3fs -o allow_other -o endpoint=eu-west-1 
+    #  args:
+    #    creates: "/mnt/s3"
+    #  environment:
+    #    AWS_ACCESS_KEY_ID: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+    #    AWS_SECRET_ACCESS_KEY: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
 
     - name: Ensure /etc/apt/keyrings directory exists
       ansible.builtin.file:

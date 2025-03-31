@@ -75,6 +75,11 @@ jobs:
           fi
           echo "SSH is now available on $INSTANCE_IP"
 
+      - name: Test SSH connection
+        run: |
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "exit"
+
       - name: Copy SSH keys (private & public) to EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
@@ -88,10 +93,13 @@ jobs:
             echo "SSH keys transferred and configured successfully."
           EOF
 
-      - name: Test SSH connection
+      - name: Copy AWS Credentials to EC2
         run: |
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP "exit"
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/app-ssh-key.pem ubuntu@$INSTANCE_IP << 'EOF'
+            echo "${{ secrets.AWS_ACCESS_KEY_ID }}:${{ secrets.AWS_SECRET_ACCESS_KEY }}" | sudo tee /etc/passwd-s3fs > /dev/null
+            sudo chmod 600 /etc/passwd-s3fs
+          EOF
 
       - name: Install Ansible on EC2
         run: |
