@@ -3,8 +3,6 @@
   become: yes
   vars:
     ansible_python_interpreter: /usr/bin/python3
-    git_repo_url: "https://github.com/ionmariana531/sciitdevops.git"
-    git_branch: "add-terraform-github-actions-Mariana-fe"
   tasks:
 
     - name: Get Node IP
@@ -58,29 +56,21 @@
         state: present
         update_cache: yes
 
-    - name: Clone the repository to get pipeline.xml
-      git:
-        repo: "{{ git_repo_url }}"
-        dest: "/home/ubuntu/jenkins_repo"
-        version: "{{ git_branch }}"
-        update: yes
-      register: git_clone_result
-
     - name: Check if pipeline.xml exists
-      stat:
-        path: "/home/ubuntu/jenkins_repo/pipeline.xml"
+      ansible.builtin.stat:
+        path: /home/ubuntu/pipeline.xml
       register: pipeline_file
 
     - name: Debug file existence
       debug:
-        msg: "File does not exist: /home/ubuntu/jenkins_repo/pipeline.xml"
-      when: not pipeline_file.stat.exists
+        msg: "File does not exist: /home/ubuntu/pipeline.xml"
+      when: not stat_result.stat.exists
 
     - name: Create Jenkins Job using curl
       shell: >
-        curl -k -X POST "http://admin:{{ jenkins_password.stdout }}@{{ jenkins_url | regex_replace('http://', '') }}/createItem?name=GitHub-Pipeline"
-        -H "Content-Type: application/xml"
-        --data-binary "@/home/ubuntu/jenkins_repo/pipeline.xml"
+        curl -k -X POST "http://admin:{{ jenkins_password.stdout }}@{{ jenkins_url | regex_replace('http://', '') }}/createItem?name=GitHub-Pipeline" 
+        -H "Content-Type: application/xml" 
+        --data-binary "@/home/ubuntu/pipeline.xml"
       register: jenkins_job_response
       failed_when: jenkins_job_response.rc != 0
 
