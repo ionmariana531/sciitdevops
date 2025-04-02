@@ -10,12 +10,15 @@
       register: jenkins_pod_name
       changed_when: false
 
-    - name: Retrieve Jenkins initial admin password
-      shell: |
-        kubectl exec -it {{ jenkins_pod_name.stdout }} -n jenkins -- \
-        cat /var/jenkins_home/secrets/initialAdminPassword
+    - name: Enter Jenkins container and retrieve initial admin password
+      shell: >
+        kubectl exec {{ jenkins_pod_name.stdout }} -n jenkins -- bash -c "cat /var/jenkins_home/secrets/initialAdminPassword"
       register: jenkins_password
       changed_when: false
+
+    - name: Display Jenkins password
+      debug:
+        msg: "Jenkins initial admin password: {{ jenkins_password.stdout }}"
 
     - name: Get Jenkins service name
       shell: "kubectl get svc -n jenkins -o jsonpath='{.items[0].metadata.name}'"
