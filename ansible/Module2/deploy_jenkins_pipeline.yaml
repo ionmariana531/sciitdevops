@@ -5,19 +5,58 @@
   gather_facts: no
 
   tasks:
+    # 1. Get Jenkins pod name dynamically
+    - name: Get Jenkins pod name
+      shell: "kubectl get pods -n jenkins -l app.kubernetes.io/name=jenkins -o jsonpath='{.items[0].metadata.name}'"
+      register: jenkins_pod
+      changed_when: false
+
+    # 2. Get Jenkins admin password from the pod
     - name: Get Jenkins admin password from K3s
       shell: |
-        kubectl get secret -n jenkins jenkins-admin-password -o jsonpath="{.data.password}" | base64 --decode
+        kubectl exec -it {{ jenkins_pod.stdout }} -n jenkins -- cat /var/jenkins_home/secrets/initialAdminPassword
       register: jenkins_password
+      changed_when: false
 
-    - name: Get Jenkins URL from K3s
-      shell: |
-        kubectl get svc -n jenkins jenkins-service -o jsonpath="{.status.loadBalancer.ingress[0].hostname}"
-      register: jenkins_url
+    # 3. Get the name of the Jenkins service (NodePort or LoadBalancer)
+    - name: Get Jenkins service name
+      shell: "kubectl get svc -n jenkins -o jsonpath='{.items[0].metadata.name}'"
+      register: jenkins_service
+      changed_when: false
 
+    # 4. Try to get Jenkins URL from LoadBalancer
+    - name: Get Jenkins LoadBalancer hostname (if available)
+      shell: "kubectl get svc -n jenkins {{ jenkins_service.stdout }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'"
+      register: jenkins_hostname
+      changed_when: false
+      ignore_errors: true
+
+    # 5. If LoadBalancer is not available, fallback to NodePort
+    - name: Get Jenkins NodePort (if LoadBalancer not available)
+      shell: "kubectl get svc -n jenkins {{ jenkins_service.stdout }} -o jsonpath='{.spec.ports[0].nodePort}'"
+      register: jenkins_nodeport
+      changed_when: false
+      when: jenkins_hostname.failed
+
+    # 6. Construct Jenkins URL based on LoadBalancer or NodePort
+    - name: Determine Jenkins URL
+      set_fact:
+        jenkins_url: >-
+          {%- if not jenkins_hostname.failed -%}
+          http://{{ jenkins_hostname.stdout }}
+          {%- else -%}
+          http://{{ ansible_host }}:{{ jenkins_nodeport.stdout }}
+          {%- endif -%}
+
+    # 7. Display Jenkins URL for user
+    - name: Display Jenkins URL
+      debug:
+        msg: "Access Jenkins at: {{ jenkins_url }}"
+
+    # 8. Create Jenkins job using API
     - name: Create Jenkins job using API
       uri:
-        url: "https://{{ jenkins_url.stdout }}/createItem?name=GitHub-Pipeline"
+        url: "https://{{ jenkins_url | regex_replace('http://', '') }}/createItem?name=GitHub-Pipeline"
         method: POST
         user: "admin"
         password: "{{ jenkins_password.stdout }}"
@@ -28,6 +67,8 @@
         status_code: 200
       register: jenkins_job_response
 
+    # 9. Debug the job creation response
     - name: Debug job creation response
       debug:
         var: jenkins_job_response
+
