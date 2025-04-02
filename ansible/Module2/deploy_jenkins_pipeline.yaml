@@ -49,7 +49,6 @@
         -- cat /var/jenkins_home/secrets/initialAdminPassword
       register: jenkins_password
       changed_when: false
-      no_log: true
 
     - name: Ensure curl is installed
       ansible.builtin.apt:
