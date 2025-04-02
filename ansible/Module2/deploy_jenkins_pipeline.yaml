@@ -1,59 +1,20 @@
----
-- name: Deploy Jenkins Pipeline
-  hosts: all
-  become: no
-  gather_facts: no
-
+- name: Creează job-ul Jenkins folosind curl
+  hosts: master
+  become: yes
   tasks:
-    - name: Get Jenkins pod name
-      shell: "kubectl get pods -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'"
-      register: jenkins_pod_name
-      changed_when: false
+    - name: Extrage Jenkins URL din Kubernetes
+      shell: kubectl get secret jenkins-admin-secret -o jsonpath='{.data.JENKINS_URL}' -n jenkins | base64 --decode
+      register: jenkins_url
 
-    - name: Enter Jenkins container and retrieve initial admin password
-      shell: >
-        kubectl exec {{ jenkins_pod_name.stdout }} -n jenkins -- bash -c "echo 'Entering container...'; cat /var/jenkins_home/secrets/initialAdminPassword; echo 'Password retrieved!'"
+    - name: Extrage Jenkins password din Kubernetes
+      shell: kubectl get secret jenkins-admin-secret -o jsonpath='{.data.JENKINS_PASSWORD}' -n jenkins | base64 --decode
       register: jenkins_password
-      changed_when: false
 
-    - name: Display Jenkins password
-      debug:
-        msg: "Jenkins initial admin password: {{ jenkins_password.stdout }}"
-
-    - name: Get Jenkins service name
-      shell: "kubectl get svc -n jenkins -o jsonpath='{.items[0].metadata.name}'"
-      register: jenkins_service
-      changed_when: false
-
-    - name: Get Jenkins NodePort
-      shell: "kubectl get svc -n jenkins {{ jenkins_service.stdout }} -o jsonpath='{.spec.ports[0].nodePort}'"
-      register: jenkins_nodeport
-      changed_when: false
-
-    - name: Determine Jenkins URL using NodePort
-      set_fact:
-        jenkins_url: "http://{{ ansible_host }}:{{ jenkins_nodeport.stdout }}"
-
-    - name: Copy pipeline.xml to remote machine
-      copy:
-        src: pipeline.xml
-        dest: /tmp/pipeline.xml
-
-    - name: Create Jenkins job using pipeline.xml
+    - name: Creează job-ul Jenkins folosind curl
       shell: >
-        curl -k -X POST "http://admin:{{ jenkins_password.stdout }}@{{ jenkins_url | regex_replace('http://', '') }}/createItem?name=GitHub-Pipeline"
-        -H "Content-Type: application/xml"
-        --data-binary "@/tmp/pipeline.xml"
+        curl -k -X POST "https://admin:{{ jenkins_password.stdout }}@{{ jenkins_url.stdout | regex_replace('https://', '') }}/createItem?name=GitHub-Pipeline" 
+        -H "Content-Type: application/xml" 
+        --data-binary "@pipeline.xml"
       register: jenkins_job_response
       failed_when: jenkins_job_response.rc != 0
-
-    - name: Trigger Jenkins job
-      shell: >
-        curl -k -X POST "http://admin:{{ jenkins_password.stdout }}@{{ jenkins_url | regex_replace('http://', '') }}/job/GitHub-Pipeline/build"
-      register: jenkins_build_response
-      failed_when: jenkins_build_response.rc != 0
-
-    - name: Display Jenkins job trigger response
-      debug:
-        msg: "Jenkins job triggered successfully!"
 
