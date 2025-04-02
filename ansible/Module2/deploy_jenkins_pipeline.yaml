@@ -11,53 +11,37 @@
       register: jenkins_pod_name
       changed_when: false
 
-    - name: Fetch initial admin password from Jenkins container
+    - name: Read ArgoCD password from S3 mount
+      command: cat /mnt/s3/argocd_password.txt
+      register: argocd_password
+      changed_when: false
+
+    - name: Overwrite Jenkins initial admin password with ArgoCD password
       shell: |
-        kubectl exec -it {{ jenkins_pod_name.stdout }} -n jenkins -c jenkins -- cat /var/jenkins_home/secrets/initialAdminPassword
-      register: jenkins_initial_admin_password
+        kubectl exec -it {{ jenkins_pod_name.stdout }} -n jenkins -- \
+        bash -c "echo '{{ argocd_password.stdout }}' > /var/jenkins_home/secrets/initialAdminPassword"
+      changed_when: true
 
-    - name: Show Jenkins initial admin password
-      debug:
-        msg: "The Jenkins initial admin password is: {{ jenkins_initial_admin_password.stdout }}"
+    - name: Restart Jenkins pod to apply new password
+      shell: |
+        kubectl delete pod -n jenkins {{ jenkins_pod_name.stdout }}
+      changed_when: true
 
-    # 3. Get the name of the Jenkins service (NodePort or LoadBalancer)
     - name: Get Jenkins service name
       shell: "kubectl get svc -n jenkins -o jsonpath='{.items[0].metadata.name}'"
       register: jenkins_service
       changed_when: false
 
-    # 4. Try to get Jenkins URL from NodePort (since you use NodePort)
     - name: Get Jenkins NodePort
       shell: "kubectl get svc -n jenkins {{ jenkins_service.stdout }} -o jsonpath='{.spec.ports[0].nodePort}'"
       register: jenkins_nodeport
       changed_when: false
 
-    # 5. Construct Jenkins URL using NodePort
     - name: Determine Jenkins URL using NodePort
       set_fact:
         jenkins_url: "http://{{ ansible_host }}:{{ jenkins_nodeport.stdout }}"
 
-    # 6. Display Jenkins URL for user
     - name: Display Jenkins URL
       debug:
-        msg: "Access Jenkins at: {{ jenkins_url }}"
-
-    # 7. Create Jenkins job for Python Weather App
-    - name: Create Jenkins job for Python Weather App
-      uri:
-        url: "https://{{ jenkins_url | regex_replace('http://', '') }}/createItem?name=Weather-App-Pipeline"
-        method: POST
-        user: "admin"
-        password: "{{ jenkins_password.stdout }}"
-        headers:
-          Content-Type: "application/xml"
-        body: "{{ lookup('file', 'weather-pipeline.xml') }}"  # Definiția pipeline-ului
-        force_basic_auth: yes
-        status_code: 200
-      register: jenkins_job_response
-
-    # 8. Debug the job creation response
-    - name: Debug job creation response
-      debug:
-        var: jenkins_job_response
+        msg: "Access Jenkins at: {{ jenkins_url }} with password from /mnt/s3/argocd_password.txt"
 
