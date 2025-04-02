@@ -6,22 +6,19 @@
 
   tasks:
     - name: Get Jenkins pod name
-      command: kubectl get pods -n jenkins -o jsonpath='{.items[0].metadata.name}'
+      shell: |
+        kubectl get pods -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'
       register: jenkins_pod_name
       changed_when: false
 
-    - name: Get Jenkins admin password from K3s
-      command: kubectl exec -it {{ jenkins_pod_name.stdout }} -n jenkins -c jenkins -- cat /var/jenkins_home/secrets/initialAdminPassword
-      register: jenkins_password
-      changed_when: false
+    - name: Fetch initial admin password from Jenkins container
+      shell: |
+        kubectl exec -it {{ jenkins_pod_name.stdout }} -n jenkins -c jenkins -- cat /var/jenkins_home/secrets/initialAdminPassword
+      register: jenkins_initial_admin_password
 
-    - name: Debug jenkins_pod_name
+    - name: Show Jenkins initial admin password
       debug:
-        msg: "Jenkins Pod Name: {{ jenkins_pod_name.stdout }}"
-
-    - name: Display Jenkins admin password
-      debug:
-        msg: "Jenkins admin password: {{ jenkins_password.stdout }}"
+        msg: "The Jenkins initial admin password is: {{ jenkins_initial_admin_password.stdout }}"
 
     # 3. Get the name of the Jenkins service (NodePort or LoadBalancer)
     - name: Get Jenkins service name
