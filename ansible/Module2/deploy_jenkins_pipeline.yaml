@@ -16,7 +16,7 @@
       changed_when: false
 
     - name: Get Jenkins admin password from K3s
-      command: kubectl exec -it {{ jenkins_pod.stdout }} -n jenkins -c {{ jenkins_container.stdout }} -- cat /var/jenkins_home/secrets/initialAdminPassword
+      command: kubectl exec -it {{ jenkins_pod.stdout }} -n jenkins -- cat /var/jenkins_home/secrets/initialAdminPassword
       register: jenkins_password
       changed_when: false
 
