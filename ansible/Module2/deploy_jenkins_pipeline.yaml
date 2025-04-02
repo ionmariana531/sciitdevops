@@ -1,0 +1,33 @@
+---
+- name: Deploy Jenkins Pipeline from EC2
+  hosts: all
+  become: yes  # Rulează ca root
+  gather_facts: no
+
+  tasks:
+    - name: Get Jenkins admin password from K3s
+      shell: |
+        kubectl get secret -n jenkins jenkins-admin-password -o jsonpath="{.data.password}" | base64 --decode
+      register: jenkins_password
+
+    - name: Get Jenkins URL from K3s
+      shell: |
+        kubectl get svc -n jenkins jenkins-service -o jsonpath="{.status.loadBalancer.ingress[0].hostname}"
+      register: jenkins_url
+
+    - name: Create Jenkins job using API
+      uri:
+        url: "https://{{ jenkins_url.stdout }}/createItem?name=GitHub-Pipeline"
+        method: POST
+        user: "admin"
+        password: "{{ jenkins_password.stdout }}"
+        headers:
+          Content-Type: "application/xml"
+        body: "{{ lookup('file', 'pipeline.xml') }}"
+        force_basic_auth: yes
+        status_code: 200
+      register: jenkins_job_response
+
+    - name: Debug job creation response
+      debug:
+        var: jenkins_job_response
