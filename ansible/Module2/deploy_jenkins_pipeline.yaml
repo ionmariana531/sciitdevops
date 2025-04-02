@@ -1,31 +1,21 @@
 ---
-- name: Deploy Python Weather App from EC2
+- name: Deploy Jenkins Pipeline
   hosts: all
-  become: yes  # Rulează ca root
+  become: no
   gather_facts: no
 
   tasks:
     - name: Get Jenkins pod name
-      shell: |
-        kubectl get pods -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'
+      shell: "kubectl get pods -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'"
       register: jenkins_pod_name
       changed_when: false
 
-    - name: Read ArgoCD password from S3 mount
-      command: cat /mnt/s3/argocd_password.txt
-      register: argocd_password
-      changed_when: false
-
-    - name: Overwrite Jenkins initial admin password with ArgoCD password
+    - name: Retrieve Jenkins initial admin password
       shell: |
         kubectl exec -it {{ jenkins_pod_name.stdout }} -n jenkins -- \
-        bash -c "echo '{{ argocd_password.stdout }}' > /var/jenkins_home/secrets/initialAdminPassword"
-      changed_when: true
-
-    - name: Restart Jenkins pod to apply new password
-      shell: |
-        kubectl delete pod -n jenkins {{ jenkins_pod_name.stdout }}
-      changed_when: true
+        cat /var/jenkins_home/secrets/initialAdminPassword
+      register: jenkins_password
+      changed_when: false
 
     - name: Get Jenkins service name
       shell: "kubectl get svc -n jenkins -o jsonpath='{.items[0].metadata.name}'"
@@ -41,7 +31,26 @@
       set_fact:
         jenkins_url: "http://{{ ansible_host }}:{{ jenkins_nodeport.stdout }}"
 
-    - name: Display Jenkins URL
+    - name: Copy pipeline.xml to remote machine
+      copy:
+        src: pipeline.xml
+        dest: /tmp/pipeline.xml
+
+    - name: Create Jenkins job using pipeline.xml
+      shell: >
+        curl -k -X POST "http://admin:{{ jenkins_password.stdout }}@{{ jenkins_url | regex_replace('http://', '') }}/createItem?name=GitHub-Pipeline"
+        -H "Content-Type: application/xml"
+        --data-binary "@/tmp/pipeline.xml"
+      register: jenkins_job_response
+      failed_when: jenkins_job_response.rc != 0
+
+    - name: Trigger Jenkins job
+      shell: >
+        curl -k -X POST "http://admin:{{ jenkins_password.stdout }}@{{ jenkins_url | regex_replace('http://', '') }}/job/GitHub-Pipeline/build"
+      register: jenkins_build_response
+      failed_when: jenkins_build_response.rc != 0
+
+    - name: Display Jenkins job trigger response
       debug:
-        msg: "Access Jenkins at: {{ jenkins_url }} with password from /mnt/s3/argocd_password.txt"
+        msg: "Jenkins job triggered successfully!"
 
