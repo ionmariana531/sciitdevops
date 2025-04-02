@@ -12,7 +12,7 @@
 
     - name: Enter Jenkins container and retrieve initial admin password
       shell: >
-        kubectl exec {{ jenkins_pod_name.stdout }} -n jenkins -- bash -c "cat /var/jenkins_home/secrets/initialAdminPassword"
+        kubectl exec {{ jenkins_pod_name.stdout }} -n jenkins -- bash -c "echo 'Entering container...'; cat /var/jenkins_home/secrets/initialAdminPassword; echo 'Password retrieved!'"
       register: jenkins_password
       changed_when: false
 
