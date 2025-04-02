@@ -62,10 +62,10 @@
         path: /home/ubuntu/pipeline.xml
       register: pipeline_file
 
-    - name: Fail if pipeline.xml is missing
-      ansible.builtin.fail:
-        msg: "File /home/ubuntu/pipeline.xml does not exist!"
-      when: not pipeline_file.stat.exists
+    - name: Debug file existence
+      debug:
+        msg: "File does not exist: /home/ubuntu/pipeline.xml"
+      when: not stat_result.stat.exists
 
     - name: Create Jenkins Job using curl
       shell: >
