@@ -31,6 +31,17 @@
         dest: "/mnt/s3/jenkins_url.txt"
         mode: "0644"
 
+    - name: Debug Jenkins Pod Name
+      shell: |
+        kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
+        get pod -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'
+      register: jenkins_pod
+      changed_when: false
+
+    - name: Show Jenkins Pod Name
+      debug:
+        var: jenkins_pod.stdout
+
     - name: Get Jenkins Admin Password
       shell: |
         kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
