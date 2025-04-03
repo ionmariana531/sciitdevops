@@ -12,12 +12,18 @@
       register: node_ip
       changed_when: false
 
+    - name: Debug Jenkins NodePort request
+      debug:
+        msg: "Running kubectl command for Jenkins NodePort"
+
     - name: Get Jenkins NodePort
       shell: |
         kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
         get svc jenkins -n jenkins -o jsonpath='{.spec.ports[0].nodePort}'
       register: jenkins_nodeport
       changed_when: false
+      async: 300
+      poll: 0
 
     - name: Construct Jenkins URL
       set_fact:
