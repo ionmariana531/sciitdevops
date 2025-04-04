@@ -23,6 +23,12 @@
         name: acl
         state: present
 
+    - name: Add Jenkins user to Docker group
+      user:
+        name: jenkins
+        group: docker
+        append: yes
+
     - name: Get Jenkins NodePort
       shell: |
         kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
@@ -72,6 +78,14 @@
         dest: "/var/jenkins_home/pipeline.xml"
         mode: "0644"
         remote_src: yes
+      when: pipeline_file.stat.exists
+
+    - name: Change ownership of pipeline.xml to jenkins user
+      file:
+        path: "/var/jenkins_home/pipeline.xml"
+        owner: jenkins
+        group: jenkins
+        mode: '0644'
       when: pipeline_file.stat.exists
 
     - name: Create Jenkins Job using curl
