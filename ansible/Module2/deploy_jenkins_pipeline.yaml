@@ -5,6 +5,7 @@
     ansible_python_interpreter: /usr/bin/python3
     git_repo_url: "https://github.com/ionmariana531/sciitdevops.git"
     git_branch: "add-terraform-github-actions-Mariana-fe"
+    kubeconfig_path: "/etc/rancher/k3s/k3s.yaml"  # Calea corectă pentru kubeconfig
   tasks:
 
     - name: Get Node IP
@@ -14,7 +15,7 @@
 
     - name: Get Jenkins NodePort (async)
       shell: |
-        kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
+        kubectl --kubeconfig={{ kubeconfig_path }} \
         get svc jenkins -n jenkins -o jsonpath='{.spec.ports[0].nodePort}'
       register: jenkins_nodeport_job
       changed_when: false
@@ -49,7 +50,7 @@
 
     - name: Show Jenkins Pod Name
       shell: |
-        kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
+        kubectl --kubeconfig={{ kubeconfig_path }} \
         get pod -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'
       register: jenkins_pod
       changed_when: false
@@ -57,7 +58,7 @@
 
     - name: Get Jenkins Admin Password
       shell: |
-        kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
+        kubectl --kubeconfig={{ kubeconfig_path }} \
         exec -n jenkins {{ jenkins_pod.stdout }} -- cat /var/jenkins_home/secrets/initialAdminPassword
       register: jenkins_password
       changed_when: false
@@ -111,7 +112,7 @@
       register: jenkins_job_response
       failed_when: jenkins_job_response.rc != 0
 
-    - name: Display Jenkins Job Response?
+    - name: Display Jenkins Job Response
       debug:
         var: jenkins_job_response.stdout
 
