@@ -95,11 +95,11 @@
       debug:
         var: csrf_token_response.stdout
 
-    - name: Extract Jenkins Crumb from response
+    - name: Extract Jenkins Crumb from response as a string
       set_fact:
-        jenkins_crumb: "{{ csrf_token_response.stdout | regex_search('\"crumb\":\"([^\"]+)\"', '\\1') | first | default('') }}"
+        jenkins_crumb: "{{ csrf_token_response.stdout | from_json | json_query('crumb') | string }}"
 
-    - name: Debug Jenkins Crumb
+    - name: Debug Jenkins Crumb as string
       debug:
         var: jenkins_crumb
 
