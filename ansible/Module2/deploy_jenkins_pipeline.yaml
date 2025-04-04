@@ -90,7 +90,7 @@
 
     - name: Extract Jenkins Crumb from response
       set_fact:
-        jenkins_crumb: "{{ csrf_token_response.stdout | regex_search('\"crumb\":\"([^\"]+)\"', '\\1') | default('') }}"
+        jenkins_crumb: "{{ csrf_token_response.stdout | regex_search('\"crumb\":\"([^\"]+)\"', '\\1') | first | default('') }}"
 
     - name: Debug Jenkins Crumb
       debug:
