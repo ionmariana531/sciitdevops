@@ -5,8 +5,13 @@
     ansible_python_interpreter: /usr/bin/python3
     git_repo_url: "https://github.com/ionmariana531/sciitdevops.git"
     git_branch: "add-terraform-github-actions-Mariana-fe"
-    kubeconfig_path: "/etc/rancher/k3s/k3s.yaml"  # Calea corectă pentru kubeconfig
+    kubeconfig_path: "/etc/rancher/k3s/k3s.yaml"
   tasks:
+
+    - name: Install jmespath
+      ansible.builtin.pip:
+        name: jmespath
+        state: present
 
     - name: Get Node IP
       shell: "hostname -I | awk '{print $1}'"
