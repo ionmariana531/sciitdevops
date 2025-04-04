@@ -21,9 +21,13 @@
       async: 300
       poll: 0
 
+    - name: Display Jenkins NodePort
+      debug:
+        var: jenkins_nodeport
+
     - name: Construct Jenkins URL
       set_fact:
-        jenkins_url: "http://{{ node_ip.stdout }}:{{ jenkins_nodeport.stdout }}"
+        jenkins_url: "http://{{ node_ip.stdout }}:{{ jenkins_nodeport.stdout | default('none') }}"
 
     - name: Display Jenkins URL
       debug:
