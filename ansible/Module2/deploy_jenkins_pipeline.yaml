@@ -78,6 +78,14 @@
     - name: List files in jenkins_repo
       command: ls -l /home/ubuntu/jenkins_repo
 
+    - name: Ensure /var/jenkins_home directory exists
+      file:
+        path: /var/jenkins_home
+        state: directory
+        owner: jenkins
+        group: jenkins
+        mode: '0755'
+
     - name: Copy pipeline.xml to Jenkins server
       ansible.builtin.copy:
         src: "/home/ubuntu/jenkins_repo/pipeline.xml"
