@@ -48,16 +48,20 @@
         mode: "0644"
 
     - name: Show Jenkins Pod Name
-      debug:
-        var: jenkins_pod.stdout
+      shell: |
+        kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
+        get pod -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'
+      register: jenkins_pod
+      changed_when: false
+      failed_when: jenkins_pod.stdout == ""
 
     - name: Get Jenkins Admin Password
       shell: |
         kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
-        exec -n jenkins $(kubectl get pod -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}') \
-        -- cat /var/jenkins_home/secrets/initialAdminPassword
+        exec -n jenkins {{ jenkins_pod.stdout }} -- cat /var/jenkins_home/secrets/initialAdminPassword
       register: jenkins_password
       changed_when: false
+      failed_when: jenkins_password.stdout == ""
 
     - name: Ensure curl is installed
       ansible.builtin.apt:
@@ -77,6 +81,8 @@
       stat:
         path: "/home/ubuntu/jenkins_repo/pipeline.xml"
       register: pipeline_file
+      failed_when: pipeline_file.stat.exists == false
+      changed_when: false
 
     - name: Get CSRF token from Jenkins
       shell: >
@@ -108,3 +114,4 @@
     - name: Display Jenkins Job Response?
       debug:
         var: jenkins_job_response.stdout
+
