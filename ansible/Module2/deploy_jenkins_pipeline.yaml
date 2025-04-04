@@ -73,6 +73,6 @@
         ssh_port: 22
         ssh_private_key: "/home/ubuntu/.ssh/id_rsa"
 
-    - name: Display Jenkins Node Creation Result
+    - name: Display Jenkins Node Creation Result?
       debug:
         msg: "Jenkins node created successfully."
