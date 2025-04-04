@@ -84,11 +84,23 @@
       register: csrf_token_response
       failed_when: csrf_token_response.rc != 0
 
+    - name: Debug CSRF token response
+      debug:
+        var: csrf_token_response.stdout
+
+    - name: Extract Jenkins Crumb from response
+      set_fact:
+        jenkins_crumb: "{{ csrf_token_response.stdout | regex_search('\"crumb\":\"([^\"]+)\"', '\\1') | default('') }}"
+
+    - name: Debug Jenkins Crumb
+      debug:
+        var: jenkins_crumb
+
     - name: Create Jenkins Job using curl
       shell: >
         curl -k -X POST "http://admin:{{ jenkins_password.stdout }}@{{ jenkins_url | regex_replace('http://', '') }}/createItem?name=GitHub-Pipeline"
         -H "Content-Type: application/xml"
-        -H "Jenkins-Crumb: {{ csrf_token_response.stdout | regex_search('\"crumb\":\"([^\"]+)\"', '\\1') }}"
+        -H "Jenkins-Crumb: {{ jenkins_crumb }}"
         --data-binary "@/home/ubuntu/jenkins_repo/pipeline.xml"
       register: jenkins_job_response
       failed_when: jenkins_job_response.rc != 0
