@@ -5,8 +5,8 @@
     ansible_python_interpreter: /usr/bin/python3
     git_repo_url: "https://github.com/ionmariana531/sciitdevops.git"
     git_branch: "add-terraform-github-actions-Mariana-fe"
-  tasks:
 
+  tasks:
     - name: Get Node IP
       shell: "hostname -I | awk '{print $1}'"
       register: node_ip
@@ -23,22 +23,12 @@
         name: acl
         state: present
 
-    - name: Get Jenkins NodePort (async)
+    - name: Get Jenkins NodePort
       shell: |
         kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
         get svc jenkins -n jenkins -o jsonpath='{.spec.ports[0].nodePort}'
-      register: jenkins_nodeport_job
-      changed_when: false
-      async: 300
-      poll: 0
-
-    - name: Wait for async job
-      async_status:
-        jid: "{{ jenkins_nodeport_job.ansible_job_id }}"
       register: jenkins_nodeport
-      until: jenkins_nodeport.finished
-      retries: 10
-      delay: 5
+      changed_when: false
 
     - name: Construct Jenkins URL
       set_fact:
@@ -48,17 +38,10 @@
       debug:
         msg: "Jenkins is available at {{ jenkins_url }}"
 
-    - name: Save Jenkins URL to file
-      copy:
-        content: "{{ jenkins_url }}"
-        dest: "/mnt/s3/jenkins_url.txt"
-        mode: "0644"
-
     - name: Get Jenkins Admin Password
       shell: |
         kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
-        exec -n jenkins $(kubectl get pod -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}') \
-        -- cat /var/jenkins_home/secrets/initialAdminPassword
+        get secret jenkins-admin-secret -n jenkins -o jsonpath='{.data.jenkins-admin-password}' | base64 --decode
       register: jenkins_password
       changed_when: false
 
@@ -75,9 +58,6 @@
         path: "/home/ubuntu/jenkins_repo/pipeline.xml"
       register: pipeline_file
 
-    - name: List files in jenkins_repo
-      command: ls -l /home/ubuntu/jenkins_repo
-
     - name: Ensure /var/jenkins_home directory exists
       file:
         path: /var/jenkins_home
@@ -92,26 +72,8 @@
         dest: "/var/jenkins_home/pipeline.xml"
         mode: "0644"
         remote_src: yes
+      when: pipeline_file.stat.exists
 
-    - name: Set proper permissions for pipeline.xml
-      file:
-        path: "/var/jenkins_home/pipeline.xml"
-        owner: jenkins
-        group: jenkins
-        mode: "0644"
-
-    - name: Display Jenkins URL and Pipeline file path
-      debug:
-        msg: "Jenkins URL: {{ jenkins_url }}, Pipeline File Path: /var/jenkins_home/pipeline.xml"
-        # - name: Create Jenkins Job using Ansible module
-        #community.general.jenkins_job:
-        #url: "{{ jenkins_url }}"
-        #user: "admin"
-        #password: "{{ jenkins_password.stdout }}"
-        #name: "GitHub-Pipeline"
-        #config: "{{ lookup('file', '/home/ubuntu/jenkins_repo/pipeline.xml') }}"
-        #when: pipeline_file.stat.exists
-        #
     - name: Create Jenkins Job using curl
       shell: |
         JENKINS_URL="{{ jenkins_url }}"
@@ -119,15 +81,20 @@
         JENKINS_PASS="{{ jenkins_password.stdout }}"
         PIPELINE_FILE="/home/ubuntu/jenkins_repo/pipeline.xml"
 
-        # Verificăm dacă fișierul pipeline.xml există
         if [ -f "$PIPELINE_FILE" ]; then
-          # Creăm job-ul Jenkins folosind curl și API-ul Jenkins
-          curl -X POST "$JENKINS_URL/createItem?name=GitHub-Pipeline" \
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$JENKINS_URL/createItem?name=GitHub-Pipeline" \
             --user "$JENKINS_USER:$JENKINS_PASS" \
             -H "Content-Type: application/xml" \
-            --data-binary @"$PIPELINE_FILE"
+            --data-binary @"$PIPELINE_FILE")
+
+          if [ "$RESPONSE" -ne 200 ]; then
+            echo "Failed to create Jenkins job! HTTP response code: $RESPONSE"
+            exit 1
+          else
+            echo "Jenkins job created successfully!"
+          fi
         else
-          echo "Fișierul pipeline.xml nu a fost găsit!"
+          echo "Error: pipeline.xml not found!"
           exit 1
         fi
       become: true
