@@ -14,10 +14,11 @@
         state: present
         update_cache: yes
 
-    - name: Install jmespath
-      ansible.builtin.pip:
-        name: jmespath
+    - name: Install jmespath via apt
+      ansible.builtin.apt:
+        name: python3-jmespath
         state: present
+        update_cache: yes
 
     - name: Get Node IP
       shell: "hostname -I | awk '{print $1}'"
