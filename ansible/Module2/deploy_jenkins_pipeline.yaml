@@ -12,6 +12,17 @@
       register: node_ip
       changed_when: false
 
+    - name: Ensure Jenkins user exists
+      user:
+        name: jenkins
+        state: present
+        shell: /bin/bash
+
+    - name: Install ACL package
+      apt:
+        name: acl
+        state: present
+
     - name: Get Jenkins NodePort (async)
       shell: |
         kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
