@@ -5,20 +5,8 @@
     ansible_python_interpreter: /usr/bin/python3
     git_repo_url: "https://github.com/ionmariana531/sciitdevops.git"
     git_branch: "add-terraform-github-actions-Mariana-fe"
-    kubeconfig_path: "/etc/rancher/k3s/k3s.yaml"
+    jenkins_url: "http://{{ node_ip.stdout }}:{{ jenkins_nodeport.stdout | default('none') }}"
   tasks:
-
-    - name: Ensure pip3 is installed
-      ansible.builtin.apt:
-        name: python3-pip
-        state: present
-        update_cache: yes
-
-    - name: Install jmespath via apt
-      ansible.builtin.apt:
-        name: python3-jmespath
-        state: present
-        update_cache: yes
 
     - name: Get Node IP
       shell: "hostname -I | awk '{print $1}'"
@@ -27,7 +15,7 @@
 
     - name: Get Jenkins NodePort (async)
       shell: |
-        kubectl --kubeconfig={{ kubeconfig_path }} \
+        kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
         get svc jenkins -n jenkins -o jsonpath='{.spec.ports[0].nodePort}'
       register: jenkins_nodeport_job
       changed_when: false
@@ -61,20 +49,16 @@
         mode: "0644"
 
     - name: Show Jenkins Pod Name
-      shell: |
-        kubectl --kubeconfig={{ kubeconfig_path }} \
-        get pod -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'
-      register: jenkins_pod
-      changed_when: false
-      failed_when: jenkins_pod.stdout == ""
+      debug:
+        var: jenkins_pod.stdout
 
     - name: Get Jenkins Admin Password
       shell: |
-        kubectl --kubeconfig={{ kubeconfig_path }} \
-        exec -n jenkins {{ jenkins_pod.stdout }} -- cat /var/jenkins_home/secrets/initialAdminPassword
+        kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
+        exec -n jenkins $(kubectl get pod -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}') \
+        -- cat /var/jenkins_home/secrets/initialAdminPassword
       register: jenkins_password
       changed_when: false
-      failed_when: jenkins_password.stdout == ""
 
     - name: Ensure curl is installed
       ansible.builtin.apt:
@@ -94,26 +78,28 @@
       stat:
         path: "/home/ubuntu/jenkins_repo/pipeline.xml"
       register: pipeline_file
-      failed_when: pipeline_file.stat.exists == false
-      changed_when: false
 
-    - name: Get CSRF token from Jenkins
-      shell: >
-        curl -k -X GET "http://admin:{{ jenkins_password.stdout }}@{{ jenkins_url | regex_replace('http://', '') }}/crumbIssuer/api/json"
-      register: csrf_token_response
-      failed_when: csrf_token_response.rc != 0
+    - name: Get Jenkins Token
+      shell: |
+        curl -k -X GET "http://admin:{{ jenkins_password.stdout }}@{{ jenkins_url | regex_replace('http://', '') }}/api/json"
+      register: jenkins_api_response
+      failed_when: jenkins_api_response.rc != 0
 
-    - name: Debug CSRF token response
-      debug:
-        var: csrf_token_response.stdout
-
-    - name: Extract Jenkins Crumb from response as a string
+    - name: Extract Jenkins Token
       set_fact:
-        jenkins_crumb: "{{ csrf_token_response.stdout | from_json | json_query('crumb') | string }}"
+        jenkins_token: "{{ jenkins_api_response.stdout | regex_search('\"token\":\"([^\"]+)\"', '\\1') | first | default('') }}"
 
-    - name: Debug Jenkins Crumb as string
+    - name: Debug Jenkins Token
       debug:
-        var: jenkins_crumb
+        var: jenkins_token
+
+    - name: Create Jenkins Node using token authentication
+      community.general.jenkins_node:
+        url: "{{ jenkins_url }}"
+        user: jenkins
+        token: "{{ jenkins_token }}"
+        name: my-node
+        state: present
 
     - name: Create Jenkins Job using curl
       shell: >
@@ -124,7 +110,6 @@
       register: jenkins_job_response
       failed_when: jenkins_job_response.rc != 0
 
-    - name: Display Jenkins Job Response
+    - name: Display Jenkins Job Response?
       debug:
         var: jenkins_job_response.stdout
-
