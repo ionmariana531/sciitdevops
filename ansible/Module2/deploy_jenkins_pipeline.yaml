@@ -115,6 +115,11 @@
       register: jenkins_api_token
       changed_when: false
 
+    - name: Save Jenkins API token to file
+      copy:
+        content: "{{ token }}"
+        dest: "/tmp/jenkins_api_token.txt"
+
     - name: Create Jenkins Job using curl
       shell: |
         JENKINS_URL="{{ jenkins_url }}"
