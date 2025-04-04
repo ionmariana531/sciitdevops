@@ -78,6 +78,23 @@
     - name: List files in jenkins_repo
       command: ls -l /home/ubuntu/jenkins_repo
 
+    - name: Copy pipeline.xml to Jenkins server
+      copy:
+        src: "/home/ubuntu/jenkins_repo/pipeline.xml"
+        dest: "/var/jenkins_home/pipeline.xml"
+        mode: "0644"
+      when: pipeline_file.stat.exists
+
+    - name: Set proper permissions for pipeline.xml
+      file:
+        path: "/var/jenkins_home/pipeline.xml"
+        owner: jenkins
+        group: jenkins
+        mode: "0644"
+
+    - name: Display Jenkins URL and Pipeline file path
+      debug:
+        msg: "Jenkins URL: {{ jenkins_url }}, Pipeline File Path: /var/jenkins_home/pipeline.xml"
         # - name: Create Jenkins Job using Ansible module
         #community.general.jenkins_job:
         #url: "{{ jenkins_url }}"
