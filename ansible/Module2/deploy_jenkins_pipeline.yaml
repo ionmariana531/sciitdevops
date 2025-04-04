@@ -66,6 +66,9 @@
         path: "/home/ubuntu/jenkins_repo/pipeline.xml"
       register: pipeline_file
 
+    - name: List files in jenkins_repo
+      command: ls -l /home/ubuntu/jenkins_repo
+
     - name: Create Jenkins Job using Ansible module
       community.general.jenkins_job:
         url: "{{ jenkins_url }}"
