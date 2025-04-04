@@ -102,7 +102,7 @@
         JENKINS_URL="{{ jenkins_url }}"
         JENKINS_USER="admin"
         JENKINS_PASS="{{ jenkins_password.stdout }}"
-        PIPELINE_FILE="/home/ubuntu/jenkins_repo/pipeline.xml"
+        PIPELINE_FILE="/var/jenkins_home/pipeline.xml"
 
         if [ -f "$PIPELINE_FILE" ]; then
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$JENKINS_URL/createItem?name=GitHub-Pipeline" \
