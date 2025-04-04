@@ -12,14 +12,22 @@
       register: node_ip
       changed_when: false
 
-    - name: Get Jenkins NodePort
+    - name: Get Jenkins NodePort (async)
       shell: |
         kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
         get svc jenkins -n jenkins -o jsonpath='{.spec.ports[0].nodePort}'
-      register: jenkins_nodeport
+      register: jenkins_nodeport_job
       changed_when: false
       async: 300
       poll: 0
+
+    - name: Wait for async job
+      async_status:
+        jid: "{{ jenkins_nodeport_job.ansible_job_id }}"
+      register: jenkins_nodeport
+      until: jenkins_nodeport.finished
+      retries: 10
+      delay: 5
 
     - name: Display Jenkins NodePort
       debug:
