@@ -14,6 +14,11 @@
       register: node_ip
       changed_when: false
 
+    - name: Get Jenkins Pod Name
+      shell: kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml get pods -n jenkins -l app.kubernetes.io/component=jenkins-controller -o jsonpath='{.items[0].metadata.name}'
+      register: jenkins_pod
+      changed_when: false
+
     - name: Get Jenkins NodePort
       shell: |
         kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
