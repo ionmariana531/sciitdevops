@@ -5,7 +5,8 @@
     ansible_python_interpreter: /usr/bin/python3
     git_repo_url: "https://github.com/ionmariana531/sciitdevops.git"
     git_branch: "add-terraform-github-actions-Mariana-fe"
-    jenkins_url: "http://{{ node_ip.stdout }}:{{ jenkins_nodeport.stdout | default('none') }}"
+    jenkins_admin_user: "admin"
+
   tasks:
 
     - name: Get Node IP
@@ -13,44 +14,16 @@
       register: node_ip
       changed_when: false
 
-    - name: Get Jenkins NodePort (async)
+    - name: Get Jenkins NodePort
       shell: |
         kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
         get svc jenkins -n jenkins -o jsonpath='{.spec.ports[0].nodePort}'
-      register: jenkins_nodeport_job
-      changed_when: false
-      async: 300
-      poll: 0
-
-    - name: Wait for async job
-      async_status:
-        jid: "{{ jenkins_nodeport_job.ansible_job_id }}"
       register: jenkins_nodeport
-      until: jenkins_nodeport.finished
-      retries: 10
-      delay: 5
-
-    - name: Display Jenkins NodePort
-      debug:
-        var: jenkins_nodeport
+      changed_when: false
 
     - name: Construct Jenkins URL
       set_fact:
         jenkins_url: "http://{{ node_ip.stdout }}:{{ jenkins_nodeport.stdout | default('none') }}"
-
-    - name: Display Jenkins URL
-      debug:
-        msg: "Jenkins is available at {{ jenkins_url }}"
-
-    - name: Save Jenkins URL to file
-      copy:
-        content: "{{ jenkins_url }}"
-        dest: "/mnt/s3/jenkins_url.txt"
-        mode: "0644"
-
-    - name: Show Jenkins Pod Name
-      debug:
-        var: jenkins_pod.stdout
 
     - name: Get Jenkins Admin Password
       shell: |
@@ -60,56 +33,46 @@
       register: jenkins_password
       changed_when: false
 
-    - name: Ensure curl is installed
-      ansible.builtin.apt:
-        name: curl
-        state: present
-        update_cache: yes
-
-    - name: Clone the repository to get pipeline.xml
-      git:
-        repo: "{{ git_repo_url }}"
-        dest: "/home/ubuntu/jenkins_repo"
-        version: "{{ git_branch }}"
-        update: yes
-      register: git_clone_result
-
-    - name: Check if pipeline.xml exists
-      stat:
-        path: "/home/ubuntu/jenkins_repo/pipeline.xml"
-      register: pipeline_file
-
-    - name: Get Jenkins Token
-      shell: |
-        curl -k -X GET "http://admin:{{ jenkins_password.stdout }}@{{ jenkins_url | regex_replace('http://', '') }}/api/json"
+    - name: Get Jenkins API Token
+      uri:
+        url: "{{ jenkins_url }}/me/descriptorByName/jenkins.security.ApiTokenProperty/generateNewToken"
+        method: POST
+        user: "{{ jenkins_admin_user }}"
+        password: "{{ jenkins_password.stdout }}"
+        force_basic_auth: yes
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body: '{ "newTokenName": "AnsibleToken" }'
       register: jenkins_api_response
-      failed_when: jenkins_api_response.rc != 0
 
     - name: Extract Jenkins Token
       set_fact:
-        jenkins_token: "{{ jenkins_api_response.stdout | regex_search('\"token\":\"([^\"]+)\"', '\\1') | first | default('') }}"
+        jenkins_api_token: "{{ jenkins_api_response.json.data.tokenValue | default('') }}"
 
-    - name: Debug Jenkins Token
+    - name: Debug Jenkins API Token
       debug:
-        var: jenkins_token
+        var: jenkins_api_token
 
-    - name: Create Jenkins Node using token authentication
+    - name: Ensure token is available
+      fail:
+        msg: "Jenkins token is empty! Check authentication."
+      when: jenkins_api_token == ""
+
+    - name: Create a Jenkins node using token authentication
       community.general.jenkins_node:
         url: "{{ jenkins_url }}"
-        user: jenkins
-        token: "{{ jenkins_token }}"
-        name: my-node
+        user: "{{ jenkins_admin_user }}"
+        token: "{{ jenkins_api_token }}"
+        name: "my-node"
+        remote_fs: "/home/jenkins"
+        labels: "agent"
         state: present
+        credentials_id: "jenkins-ssh-key"
+        ssh_host: "{{ node_ip.stdout }}"
+        ssh_port: 22
+        ssh_private_key: "/home/ubuntu/.ssh/id_rsa"
 
-    - name: Create Jenkins Job using curl
-      shell: >
-        curl -k -X POST "http://admin:{{ jenkins_password.stdout }}@{{ jenkins_url | regex_replace('http://', '') }}/createItem?name=GitHub-Pipeline"
-        -H "Content-Type: application/xml"
-        -H "Jenkins-Crumb: {{ jenkins_crumb }}"
-        --data-binary "@/home/ubuntu/jenkins_repo/pipeline.xml"
-      register: jenkins_job_response
-      failed_when: jenkins_job_response.rc != 0
-
-    - name: Display Jenkins Job Response?
+    - name: Display Jenkins Node Creation Result
       debug:
-        var: jenkins_job_response.stdout
+        msg: "Jenkins node created successfully."
