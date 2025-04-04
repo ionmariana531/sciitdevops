@@ -79,11 +79,11 @@
       command: ls -l /home/ubuntu/jenkins_repo
 
     - name: Copy pipeline.xml to Jenkins server
-      copy:
+      ansible.builtin.copy:
         src: "/home/ubuntu/jenkins_repo/pipeline.xml"
         dest: "/var/jenkins_home/pipeline.xml"
         mode: "0644"
-      when: pipeline_file.stat.exists
+        remote_src: yes
 
     - name: Set proper permissions for pipeline.xml
       file:
