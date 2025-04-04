@@ -88,6 +88,15 @@
         mode: '0644'
       when: pipeline_file.stat.exists
 
+    - name: Ensure /home/jenkins/.ansible/tmp has correct permissions
+      file:
+        path: "/home/jenkins/.ansible/tmp"
+        state: directory
+        mode: '1777'
+        owner: jenkins
+        group: jenkins
+      become: true
+
     - name: Create Jenkins Job using curl
       shell: |
         JENKINS_URL="{{ jenkins_url }}"
