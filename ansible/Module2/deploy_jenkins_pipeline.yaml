@@ -5,8 +5,6 @@
     ansible_python_interpreter: /usr/bin/python3
     git_repo_url: "https://github.com/ionmariana531/sciitdevops.git"
     git_branch: "add-terraform-github-actions-Mariana-fe"
-    jenkins_admin_user: "admin"
-
   tasks:
 
     - name: Get Node IP
@@ -14,70 +12,65 @@
       register: node_ip
       changed_when: false
 
-    - name: Get Jenkins Pod Name
-      shell: kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml get pods -n jenkins -l app.kubernetes.io/component=jenkins-controller -o jsonpath='{.items[0].metadata.name}'
-      register: jenkins_pod
-      changed_when: false
-
-    - name: Get Jenkins NodePort
+    - name: Get Jenkins NodePort (async)
       shell: |
         kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
         get svc jenkins -n jenkins -o jsonpath='{.spec.ports[0].nodePort}'
-      register: jenkins_nodeport
+      register: jenkins_nodeport_job
       changed_when: false
+      async: 300
+      poll: 0
+
+    - name: Wait for async job
+      async_status:
+        jid: "{{ jenkins_nodeport_job.ansible_job_id }}"
+      register: jenkins_nodeport
+      until: jenkins_nodeport.finished
+      retries: 10
+      delay: 5
 
     - name: Construct Jenkins URL
       set_fact:
         jenkins_url: "http://{{ node_ip.stdout }}:{{ jenkins_nodeport.stdout | default('none') }}"
 
+    - name: Display Jenkins URL
+      debug:
+        msg: "Jenkins is available at {{ jenkins_url }}"
+
+    - name: Save Jenkins URL to file
+      copy:
+        content: "{{ jenkins_url }}"
+        dest: "/mnt/s3/jenkins_url.txt"
+        mode: "0644"
+
     - name: Get Jenkins Admin Password
       shell: |
+        POD_NAME=$(kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
+        get pod -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}')
+        
         kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
-        exec -n jenkins {{ jenkins_pod.stdout }} -- cat /var/jenkins_home/secrets/initialAdminPassword
+        exec -n jenkins $POD_NAME -- cat /var/jenkins_home/secrets/initialAdminPassword
       register: jenkins_password
       changed_when: false
-      failed_when: jenkins_password.stdout == ""
 
-    - name: Get Jenkins API Token
-      uri:
-        url: "{{ jenkins_url }}/me/descriptorByName/jenkins.security.ApiTokenProperty/generateNewToken"
-        method: POST
-        user: "{{ jenkins_admin_user }}"
-        password: "{{ jenkins_password.stdout }}"
-        force_basic_auth: yes
-        headers:
-          Content-Type: "application/json"
-        body_format: json
-        body: '{ "newTokenName": "AnsibleToken" }'
-      register: jenkins_api_response
+    - name: Clone the repository to get pipeline.xml
+      git:
+        repo: "{{ git_repo_url }}"
+        dest: "/home/ubuntu/jenkins_repo"
+        version: "{{ git_branch }}"
+        update: yes
+      register: git_clone_result
 
-    - name: Extract Jenkins Token
-      set_fact:
-        jenkins_api_token: "{{ jenkins_api_response.json.data.tokenValue | default('') }}"
+    - name: Check if pipeline.xml exists
+      stat:
+        path: "/home/ubuntu/jenkins_repo/pipeline.xml"
+      register: pipeline_file
 
-    - name: Debug Jenkins API Token
-      debug:
-        var: jenkins_api_token
-
-    - name: Ensure token is available
-      fail:
-        msg: "Jenkins token is empty! Check authentication."
-      when: jenkins_api_token == ""
-
-    - name: Create a Jenkins node using token authentication
-      community.general.jenkins_node:
+    - name: Create Jenkins Job using Ansible module
+      community.general.jenkins_job:
         url: "{{ jenkins_url }}"
-        user: "{{ jenkins_admin_user }}"
-        token: "{{ jenkins_api_token }}"
-        name: "my-node"
-        remote_fs: "/home/jenkins"
-        labels: "agent"
-        state: present
-        credentials_id: "jenkins-ssh-key"
-        ssh_host: "{{ node_ip.stdout }}"
-        ssh_port: 22
-        ssh_private_key: "/home/ubuntu/.ssh/id_rsa"
-
-    - name: Display Jenkins Node Creation Result?
-      debug:
-        msg: "Jenkins node created successfully."
+        user: "admin"
+        password: "{{ jenkins_password.stdout }}"
+        name: "GitHub-Pipeline"
+        config: "{{ lookup('file', '/home/ubuntu/jenkins_repo/pipeline.xml') }}"
+      when: pipeline_file.stat.exists
