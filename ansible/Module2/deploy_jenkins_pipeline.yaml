@@ -56,11 +56,9 @@
 
     - name: Get Jenkins Admin Password
       shell: |
-        POD_NAME=$(kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
-        get pod -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}')
-        
         kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
-        exec -n jenkins $POD_NAME -- cat /var/jenkins_home/secrets/initialAdminPassword
+        exec -n jenkins $(kubectl get pod -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}') \
+        -- cat /var/jenkins_home/secrets/initialAdminPassword
       register: jenkins_password
       changed_when: false
 
