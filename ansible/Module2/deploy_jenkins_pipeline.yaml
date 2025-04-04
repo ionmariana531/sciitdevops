@@ -97,16 +97,34 @@
         group: jenkins
       become: true
 
-    - name: Create Jenkins Job using curl
+    - name: Create Jenkins API token
       shell: |
         JENKINS_URL="{{ jenkins_url }}"
         JENKINS_USER="admin"
         JENKINS_PASS="{{ jenkins_password.stdout }}"
+        
+        TOKEN_NAME="myNewToken"
+        
+        RESPONSE=$(curl -s -X POST "$JENKINS_URL/user/admin/descriptorByName/jenkins.security.ApiTokenProperty/generateNewToken" \
+          --user "$JENKINS_USER:$JENKINS_PASS" \
+          -d "newTokenName=$TOKEN_NAME")
+          
+        TOKEN=$(echo $RESPONSE | grep -oP '"data" : "\K[^"]+')
+        echo "Generated API token: $TOKEN"
+        echo $TOKEN
+      register: jenkins_api_token
+      changed_when: false
+
+    - name: Create Jenkins Job using curl
+      shell: |
+        JENKINS_URL="{{ jenkins_url }}"
+        JENKINS_USER="admin"
+        JENKINS_API_TOKEN="{{ jenkins_api_token.stdout }}"
         PIPELINE_FILE="/var/jenkins_home/pipeline.xml"
 
         if [ -f "$PIPELINE_FILE" ]; then
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$JENKINS_URL/createItem?name=GitHub-Pipeline" \
-            --user "$JENKINS_USER:$JENKINS_PASS" \
+            --user "$JENKINS_USER:$JENKINS_API_TOKEN" \
             -H "Content-Type: application/xml" \
             --data-binary @"$PIPELINE_FILE")
 
