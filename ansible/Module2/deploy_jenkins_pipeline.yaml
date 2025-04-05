@@ -48,9 +48,8 @@
         msg: "Jenkins is available at {{ jenkins_url }}"
 
     - name: Get Jenkins Admin Password
-      shell: |
-        kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
-        get secret jenkins-admin-secret -n jenkins -o jsonpath='{.data.jenkins-admin-password}' | base64 --decode
+      shell: >
+        kubectl get secret jenkins -n jenkins -o jsonpath='{.data.jenkins-admin-password}' | base64 --decode
       register: jenkins_password
       changed_when: false
 
