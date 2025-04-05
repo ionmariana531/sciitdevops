@@ -60,6 +60,31 @@
       debug:
         msg: "Jenkins Admin Password: {{ jenkins_admin_password.stdout }}"
 
+    - name: Download Jenkins CLI jar
+      get_url:
+        url: "https://{{ jenkins_url }}/jnlpJars/jenkins-cli.jar"
+        dest: "/tmp/jenkins-cli.jar"
+
+    - name: Download GitHub plugin
+      get_url:
+        url: "https://updates.jenkins.io/download/plugins/github/{{ github_plugin_version }}/github.hpi"
+        dest: "/tmp/github.hpi"
+
+    - name: Install GitHub plugin
+      shell: |
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_password.stdout }}" install-plugin github -restart
+
+    - name: Wait for Jenkins to come back online
+      uri:
+        url: "https://{{ jenkins_url }}/login"
+        method: GET
+        status_code: 200
+        validate_certs: no
+      register: result
+      until: result.status == 200
+      retries: 15    # Încearcă de 15 ori (~5 minute)
+      delay: 20      # Așteaptă 20 secunde între încercări
+
     - name: Clone the repository to get pipeline.xml
       git:
         repo: "{{ git_repo_url }}"
