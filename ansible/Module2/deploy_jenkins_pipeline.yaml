@@ -56,6 +56,10 @@
       register: jenkins_admin_password
       no_log: false  # pentru a afișa parola în output-ul ansible
 
+    - name: Show Jenkins admin password
+      debug:
+        msg: "Jenkins Admin Password: {{ jenkins_admin_password.stdout }}"
+
     - name: Clone the repository to get pipeline.xml
       git:
         repo: "{{ git_repo_url }}"
