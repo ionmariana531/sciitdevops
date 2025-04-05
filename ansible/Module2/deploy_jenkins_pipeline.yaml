@@ -49,7 +49,7 @@
 
     - name: Get Jenkins Admin Password
       shell: >
-        kubectl get secret jenkins -n jenkins -o jsonpath='{.data.jenkins-admin-password}' | base64 --decode
+        kubectl get secret jenkins-credentials -n jenkins -o jsonpath='{.data.jenkins-admin-password}' | base64 --decode
       register: jenkins_password
       changed_when: false
 
