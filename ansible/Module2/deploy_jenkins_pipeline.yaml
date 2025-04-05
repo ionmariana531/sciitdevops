@@ -97,14 +97,6 @@
         mode: '0644'
       when: pipeline_file.stat.exists
 
-    - name: Parse Jenkins password (if needed)
-      set_fact:
-        jenkins_password_parsed: "{{ jenkins_password | from_json }}"
-
-    - name: Parse Jenkins URL (if needed)
-      set_fact:
-        jenkins_url_parsed: "{{ jenkins_url | from_json }}"
-
     - name: Create Jenkins Job using curl
       shell: |
         curl -k -X POST "https://admin:{{ jenkins_password }}@{{ jenkins_url | regex_replace('https://', '') }}/createItem?name=GitHub-Pipeline" \
