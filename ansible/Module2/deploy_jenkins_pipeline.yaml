@@ -82,8 +82,6 @@
     - name: Install GitHub plugin using jenkins-cli without restart
       shell: |
         java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" install-plugin github
-      args:
-        warn: false
       register: github_plugin_result
 
     - name: Restart Jenkins to apply plugin (only if needed)
