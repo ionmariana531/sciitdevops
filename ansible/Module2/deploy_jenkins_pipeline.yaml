@@ -70,6 +70,10 @@
         url: "http://updates.jenkins.io/download/plugins/github/{{ github_plugin_version }}/github.hpi"
         dest: "/tmp/github.hpi"
 
+    - name: Set GitHub plugin version
+      set_fact:
+        github_plugin_version: "1.0.0"  # sau versiunea dorită
+
     - name: Install GitHub plugin
       shell: |
         java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_password.stdout }}" install-plugin github -restart
