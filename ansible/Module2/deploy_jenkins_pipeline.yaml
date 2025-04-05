@@ -47,11 +47,21 @@
       debug:
         msg: "Jenkins is available at {{ jenkins_url }}"
 
-    - name: Get Jenkins Admin Password
-      shell: >
-        kubectl get secret jenkins-credentials -n jenkins -o jsonpath='{.data.jenkins-admin-password}' | base64 --decode
-      register: jenkins_password
-      changed_when: false
+    - name: Get Jenkins pod name
+      shell: |
+        kubectl get pods -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'
+      register: jenkins_pod_name
+
+    - name: Get Jenkins initial admin password using kubectl
+      shell: |
+        kubectl exec -it {{ jenkins_pod_name }} -n jenkins -- /bin/bash -c "cat /var/jenkins_home/secrets/initialAdminPassword"
+      register: jenkins_admin_password
+      become: true
+      become_user: root
+
+    - name: Show Jenkins admin password
+      debug:
+        msg: "Jenkins Admin Password is: {{ jenkins_admin_password.stdout }}"
 
     - name: Clone the repository to get pipeline.xml
       git:
