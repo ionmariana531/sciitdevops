@@ -67,11 +67,7 @@
 
     - name: Install GitHub plugin using jenkins-cli
       shell: |
-        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_password.stdout }}" install-plugin github -restart
-
-    - name: Install GitHub plugin
-      shell: |
-        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_password.stdout }}" install-plugin github -restart
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password }}" install-plugin github -restart
 
     - name: Wait for Jenkins to come back online
       uri:
