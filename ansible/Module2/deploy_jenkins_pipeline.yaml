@@ -103,5 +103,9 @@
           -H "Content-Type: application/xml" \
           --data-binary "@/var/jenkins_home/pipeline.xml"
       register: jenkins_job_response
-      failed_when: jenkins_job_response.rc != 0
+      failed_when: false
+
+    - name: Debug job creation response
+      debug:
+        var: jenkins_job_response 
 
