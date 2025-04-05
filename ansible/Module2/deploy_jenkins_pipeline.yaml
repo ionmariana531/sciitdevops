@@ -107,7 +107,7 @@
 
     - name: Create Jenkins Job using curl
       shell: |
-        curl -k -X POST "https://admin:{{ jenkins_password.stdout }}@{{ jenkins_url | regex_replace('https://', '') }}/createItem?name=GitHub-Pipeline" \
+        curl -k -X POST "https://admin:{{ jenkins_password }}@{{ jenkins_url | regex_replace('https://', '') }}/createItem?name=GitHub-Pipeline" \
           -H "Content-Type: application/xml" \
           --data-binary "@/var/jenkins_home/pipeline.xml"
       register: jenkins_job_response
@@ -115,5 +115,4 @@
 
     - name: Debug job creation response
       debug:
-        var: jenkins_job_response 
-
+        var: jenkins_job_response
