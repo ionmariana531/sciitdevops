@@ -79,9 +79,17 @@
         echo "JAVA_HOME=$JAVA_HOME" >> /etc/profile
       when: ansible_os_family == "Debian"
 
-    - name: Install GitHub plugin using jenkins-cli
+    - name: Install GitHub plugin using jenkins-cli without restart
       shell: |
-        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password }}" install-plugin github -restart
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" install-plugin github
+      args:
+        warn: false
+      register: github_plugin_result
+
+    - name: Restart Jenkins to apply plugin (only if needed)
+      shell: |
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" safe-restart
+      when: github_plugin_result.rc == 0
 
     - name: Wait for Jenkins to come back online
       uri:
