@@ -51,10 +51,10 @@
       shell: "kubectl get pods -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'"
       register: jenkins_pod_name
 
-   - name: Get Jenkins initial admin password using kubectl
-     shell: "kubectl exec -it {{ jenkins_pod_name.stdout }} -n jenkins -- /bin/bash -c 'cat /var/jenkins_home/secrets/initialAdminPassword'"
-     register: jenkins_admin_password
-     no_log: false  # pentru a afișa parola în output-ul ansible
+    - name: Get Jenkins initial admin password using kubectl
+      shell: "kubectl exec -it {{ jenkins_pod_name.stdout }} -n jenkins -- /bin/bash -c 'cat /var/jenkins_home/secrets/initialAdminPassword'"
+      register: jenkins_admin_password
+      no_log: false  # pentru a afișa parola în output-ul ansible
 
     - name: Clone the repository to get pipeline.xml
       git:
