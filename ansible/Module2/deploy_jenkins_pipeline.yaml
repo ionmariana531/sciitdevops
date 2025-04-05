@@ -137,11 +137,15 @@
         mode: '0644'
       when: pipeline_file.stat.exists
 
+    - name: Debug jenkins_url
+      debug:
+        msg: "Jenkins URL: {{ jenkins_url | regex_replace('https://', '') }}"
+
     - name: Create Jenkins Job using curl
       shell: |
-        curl -k -X POST "http://admin:{{ jenkins_password }}@{{ jenkins_url | regex_replace('https://', '') }}/createItem?name=GitHub-Pipeline" \
-          -H "Content-Type: application/xml" \
-          --data-binary "@/var/jenkins_home/pipeline.xml"
+        curl -k -X POST "http://admin:{{ jenkins_password }}@{{ jenkins_url }}/createItem?name=GitHub-Pipeline" \
+        -H "Content-Type: application/xml" \
+        --data-binary "@/var/jenkins_home/pipeline.xml"
       register: jenkins_job_response
       failed_when: false
 
