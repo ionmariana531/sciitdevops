@@ -1,3 +1,4 @@
+---
 - name: Deploy Jenkins Pipeline
   hosts: master
   become: yes
@@ -5,6 +6,8 @@
     ansible_python_interpreter: /usr/bin/python3
     git_repo_url: "https://github.com/ionmariana531/sciitdevops.git"
     git_branch: "add-terraform-github-actions-Mariana-fe"
+    jenkins_url: "http://your-jenkins-url"  # URL-ul complet al Jenkins
+    jenkins_password: "your-jenkins-password"  # Parola de Jenkins, poți extrage din secret sau altă sursă
 
   tasks:
     - name: Get Node IP
@@ -88,61 +91,11 @@
         mode: '0644'
       when: pipeline_file.stat.exists
 
-    - name: Ensure /home/jenkins/.ansible/tmp has correct permissions
-      file:
-        path: "/home/jenkins/.ansible/tmp"
-        state: directory
-        mode: '1777'
-        owner: jenkins
-        group: jenkins
-      become: true
-
-    - name: Create Jenkins API token
-      shell: |
-        JENKINS_URL="{{ jenkins_url }}"
-        JENKINS_USER="admin"
-        JENKINS_PASS="{{ jenkins_password.stdout }}"
-        
-        TOKEN_NAME="myNewToken"
-        
-        RESPONSE=$(curl -s -X POST "$JENKINS_URL/user/admin/descriptorByName/jenkins.security.ApiTokenProperty/generateNewToken" \
-          --user "$JENKINS_USER:$JENKINS_PASS" \
-          -d "newTokenName=$TOKEN_NAME")
-          
-        TOKEN=$(echo $RESPONSE | grep -oP '"data" : "\K[^"]+')
-        echo "Generated API token: $TOKEN"
-        echo $TOKEN
-      register: jenkins_api_token
-      changed_when: false
-
-    - name: Save Jenkins API token to file
-      copy:
-        content: "{{ token }}"
-        dest: "/tmp/jenkins_api_token.txt"
-
     - name: Create Jenkins Job using curl
       shell: |
-        JENKINS_URL="{{ jenkins_url }}"
-        JENKINS_USER="admin"
-        JENKINS_API_TOKEN="{{ jenkins_api_token.stdout }}"
-        PIPELINE_FILE="/var/jenkins_home/pipeline.xml"
+        curl -k -X POST "https://admin:{{ jenkins_password.stdout }}@{{ jenkins_url | regex_replace('https://', '') }}/createItem?name=GitHub-Pipeline" \
+          -H "Content-Type: application/xml" \
+          --data-binary "@/var/jenkins_home/pipeline.xml"
+      register: jenkins_job_response
+      failed_when: jenkins_job_response.rc != 0
 
-        if [ -f "$PIPELINE_FILE" ]; then
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$JENKINS_URL/createItem?name=GitHub-Pipeline" \
-            --user "$JENKINS_USER:$JENKINS_API_TOKEN" \
-            -H "Content-Type: application/xml" \
-            --data-binary @"$PIPELINE_FILE")
-
-          if [ "$RESPONSE" -ne 200 ]; then
-            echo "Failed to create Jenkins job! HTTP response code: $RESPONSE"
-            exit 1
-          else
-            echo "Jenkins job created successfully!"
-          fi
-        else
-          echo "Error: pipeline.xml not found!"
-          exit 1
-        fi
-      become: true
-      become_user: jenkins
-      when: pipeline_file.stat.exists
