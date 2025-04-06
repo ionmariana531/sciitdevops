@@ -1,67 +1,44 @@
 ---
-- name: Retrieve GitHub Secrets from AWS Secrets Manager
-  hosts: master
-  become: true
-  tasks:
-    # Pas 1: Asigură-te că jq este instalat
-    - name: Install jq
-      apt:
-        name: jq
-        state: present
-      become: true
+- name: Deploy Jenkins Pipeline using AWS Secrets Manager
+  hosts: jenkins_server
+  become: yes
 
-    #####################################################
-    # ✅ Retrieve GitHub Repo URL from Secrets Manager
-    #####################################################
-    - name: Retrieve GitHub Repo URL from Secrets Manager
+  tasks:
+    ####################################################
+    # Retrieve GitHub Repo URL from AWS Secrets Manager
+    ####################################################
+    - name: Get GitHub Repo URL
       shell: >
         aws secretsmanager get-secret-value --secret-id github_repo_url --query SecretString --output text | jq -r '.GH_REPO_URL'
       register: github_repo_url
       failed_when: github_repo_url.stdout == ""
-      become: true
 
-    - name: Clean GitHub Repo URL
-      set_fact:
-        clean_github_repo_url: "{{ github_repo_url.stdout | trim }}"
-
-    #####################################################
-    # ✅ Retrieve GitHub Username from Secrets Manager
-    #####################################################
-    - name: Retrieve GitHub Username from Secrets Manager
+    - name: Get GitHub Username
       shell: >
         aws secretsmanager get-secret-value --secret-id github_user --query SecretString --output text | jq -r '.GH_USER'
       register: github_user
       failed_when: github_user.stdout == ""
-      become: true
 
-    #####################################################
-    # ✅ Retrieve GitHub Token from Secrets Manager
-    #####################################################
-    - name: Retrieve GitHub Token from Secrets Manager
+    - name: Get GitHub Token
       shell: >
         aws secretsmanager get-secret-value --secret-id github_token --query SecretString --output text | jq -r '.GH_TOKEN'
       register: github_token
       failed_when: github_token.stdout == ""
-      become: true
 
-    # Set the GitHub Token as an environment variable in Jenkins
-    - name: Set GitHub Token in Jenkins environment variables
-      jenkins_env_var:
-        name: GITHUB_TOKEN
-        value: "{{ github_token.stdout }}"
-      become: true
+    ####################################################
+    # Trigger Jenkins Job Directly
+    ####################################################
+    - name: Trigger Jenkins Job
+      shell: |
+        curl -X POST "http://{{ inventory_hostname }}:8080/job/python-app-deploy/buildWithParameters" \
+        --user "admin:admin_jenkins_api_token" \
+        --data-urlencode "GH_USER={{ github_user.stdout | trim }}" \
+        --data-urlencode "GH_TOKEN={{ github_token.stdout | trim }}" \
+        --data-urlencode "GH_REPO_URL={{ github_repo_url.stdout | trim }}"
+      register: jenkins_trigger
+      failed_when: jenkins_trigger.rc != 0
 
-    - name: Set GitHub Repo URL in Jenkins environment variables
-      jenkins_env_var:
-        name: GITHUB_REPO_URL
-        value: "{{ clean_github_repo_url }}"
-      become: true
-
-    # Optional: Display fetched secrets for debugging (be careful with sensitive data)
-    - debug:
-        msg: |
-          GitHub Repo URL: {{ clean_github_repo_url }}
-          GitHub Username: {{ github_user.stdout }}
-          GitHub Token: {{ github_token.stdout }}
-      no_log: true  # Ensure secrets are not displayed in logs
+    - name: Show Jenkins Trigger Output
+      debug:
+        msg: "Trigger Response: {{ jenkins_trigger.stdout }}"
 
