@@ -10,6 +10,12 @@
     - k3s  # Adăugăm k3s la final, după Docker
 
   tasks:
+    - name: Install unzip utility
+      apt:
+        name: unzip
+        state: present
+      become: true
+
     # Install AWS CLI
     - name: Install AWS CLI v2
       shell: |
