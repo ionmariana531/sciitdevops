@@ -10,6 +10,15 @@
     jenkins_password: "your-jenkins-password"  # Parola de Jenkins, poți extrage din secret sau altă sursă
 
   tasks:
+    - name: Install Terraform
+      become: yes
+      shell: |
+        curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+        sudo apt update
+        sudo apt install terraform
+      when: ansible_os_family == "Debian"
+
     - name: Get public IP from inventory using terraform output
       shell: |
         INSTANCE_PUBLIC_IP=$(terraform output -json instance_ips | jq -r '.[0]')
