@@ -12,7 +12,7 @@
   tasks:
     - name: Get public IP from inventory using terraform output
       shell: |
-        INSTANCE_PUBLIC_IP=$(terraform output -json public_instance_ips | jq -r '.[0]')
+        INSTANCE_PUBLIC_IP=$(terraform output -json instance_ips | jq -r '.[0]')
         echo "Public IP is $INSTANCE_PUBLIC_IP"
         echo "$INSTANCE_PUBLIC_IP" > /tmp/public_ip.txt
       register: instance_ip
