@@ -141,6 +141,13 @@
       debug:
         msg: "Jenkins URL: {{ jenkins_url | regex_replace('https://', '') }}"
 
+    - name: Dezactivează protecția CSRF în Jenkins
+      shell: |
+        curl -k -X POST "http://{{ jenkins_user }}:{{ jenkins_admin_password.stdout }}@{{ jenkins_url }}/configureSecurity" \
+        -d "csrfProtection=false"
+      register: disable_csrf_response
+      failed_when: disable_csrf_response.rc != 0
+
     - name: Create Jenkins Pipeline Job
       shell: |
         curl -k -X POST "http://admin:{{ jenkins_admin_password.stdout }}@{{ node_ip.stdout }}:{{ jenkins_nodeport.stdout }}/createItem?name=GitHub-Pipeline" \
