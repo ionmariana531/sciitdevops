@@ -10,10 +10,14 @@
     jenkins_password: "your-jenkins-password"  # Parola de Jenkins, poți extrage din secret sau altă sursă
 
   tasks:
-    - name: Get public IP from Terraform output
-      command: terraform output instance_public_ip
-      register: terraform_output
-      changed_when: false
+    - name: Get public IP from inventory using debug
+      debug:
+        msg: "{{ hostvars['master'].ansible_host }}"
+      register: instance_ip
+
+    - name: Display IP
+      debug:
+        msg: "Public IP of the instance is {{ instance_ip.msg }}"
 
     - name: Ensure Jenkins user exists
       user:
@@ -41,7 +45,7 @@
 
     - name: Construct Jenkins URL
       set_fact:
-        jenkins_url: "http://{{ terraform_output.stdout }}:{{ jenkins_nodeport.stdout | default('none') }}"
+        jenkins_url: "http://{{ instance_ip.stdout }}:{{ jenkins_nodeport.stdout | default('none') }}"
 
     - name: Display Jenkins URL
       debug:
@@ -150,7 +154,7 @@
 
     - name: Create Jenkins Pipeline Job
       shell: |
-        curl -k -X POST "http://admin:{{ jenkins_admin_password.stdout }}@{{ terraform_output.stdout }}:{{ jenkins_nodeport.stdout }}/createItem?name=GitHub-Pipeline" \
+        curl -k -X POST "http://admin:{{ jenkins_admin_password.stdout }}@{{ instance_ip.stdout }}:{{ jenkins_nodeport.stdout }}/createItem?name=GitHub-Pipeline" \
         -H "Content-Type: application/xml" \
         --data-binary "@/var/jenkins_home/pipeline.xml"
       register: jenkins_job_response
@@ -158,7 +162,7 @@
 
     - name: Rulează pipeline-ul în Jenkins folosind curl
       shell: |
-        curl -k -X POST "http://admin:{{ jenkins_admin_password.stdout }}@{{ terraform_output.stdout }}:{{ jenkins_nodeport.stdout }}/job/GitHub-Pipeline/build"
+        curl -k -X POST "http://admin:{{ jenkins_admin_password.stdout }}@{{ instance_ip.stdout }}:{{ jenkins_nodeport.stdout }}/job/GitHub-Pipeline/build"
       register: jenkins_build_response
       failed_when: jenkins_build_response.rc != 0
       changed_when: false  # Task-ul nu va fi considerat ca având succes, chiar dacă este deja prezent
