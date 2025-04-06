@@ -10,14 +10,16 @@
     jenkins_password: "your-jenkins-password"  # Parola de Jenkins, poți extrage din secret sau altă sursă
 
   tasks:
-    - name: Get public IP from inventory using debug
-      debug:
-        msg: "{{ hostvars['master'].ansible_host }}"
+    - name: Get public IP from inventory using terraform output
+      shell: |
+        INSTANCE_PUBLIC_IP=$(terraform output -json public_instance_ips | jq -r '.[0]')
+        echo "Public IP is $INSTANCE_PUBLIC_IP"
+        echo "$INSTANCE_PUBLIC_IP" > /tmp/public_ip.txt
       register: instance_ip
 
     - name: Display IP
       debug:
-        msg: "Public IP of the instance is {{ instance_ip.msg }}"
+        msg: "Public IP of the instance is {{ instance_ip.stdout }}"
 
     - name: Ensure Jenkins user exists
       user:
