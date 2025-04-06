@@ -9,3 +9,39 @@
     - git
     - k3s  # Adăugăm k3s la final, după Docker
 
+  tasks:
+    # Install AWS CLI
+    - name: Install AWS CLI v2
+      shell: |
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        sudo ./aws/install
+      args:
+        creates: /usr/local/bin/aws
+
+    # Verify AWS CLI installation
+    - name: Verify AWS CLI installation
+      command: aws --version
+      register: aws_version
+      changed_when: false
+
+    - name: Display AWS CLI version
+      debug:
+        msg: "AWS CLI version: {{ aws_version.stdout }}"
+
+    # Install jq
+    - name: Install jq
+      apt:
+        name: jq
+        state: present
+
+    # Verify jq installation
+    - name: Verify jq installation
+      command: jq --version
+      register: jq_version
+      changed_when: false
+
+    - name: Display jq version
+      debug:
+        msg: "jq version: {{ jq_version.stdout }}"
+
