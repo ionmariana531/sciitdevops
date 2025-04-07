@@ -46,58 +46,58 @@
 # Install GitHub Plugin in Jenkins
 #####################################################
 
-- name: Download Jenkins CLI jar
-  shell: curl -o /tmp/jenkins-cli.jar https://jenkins.k8s.it.com/jnlpJars/jenkins-cli.jar
-  register: download_jenkins_cli
-  retries: 10
-  delay: 10
+    - name: Download Jenkins CLI jar
+      shell: curl -o /tmp/jenkins-cli.jar https://jenkins.k8s.it.com/jnlpJars/jenkins-cli.jar
+      register: download_jenkins_cli
+      retries: 10
+      delay: 10
 
-- name: Download GitHub plugin
-  shell: curl -o /tmp/github.hpi https://updates.jenkins.io/download/plugins/github/1.42.0/github.hpi
-  register: download_github_plugin
-  retries: 10
-  delay: 10
+    - name: Download GitHub plugin
+      shell: curl -o /tmp/github.hpi https://updates.jenkins.io/download/plugins/github/1.42.0/github.hpi
+      register: download_github_plugin
+      retries: 10
+      delay: 10
 
-- name: Install GitHub plugin
-  shell: java -jar /tmp/jenkins-cli.jar -s http://localhost:8080 -auth "admin:{{ jenkins_password }}" install-plugin github -restart
-  register: install_github_plugin
-  retries: 10
-  delay: 10
+    - name: Install GitHub plugin
+      shell: java -jar /tmp/jenkins-cli.jar -s http://localhost:8080 -auth "admin:{{ jenkins_password }}" install-plugin github -restart
+      register: install_github_plugin
+      retries: 10
+      delay: 10
 
-- name: Wait for Jenkins to come back online
-  shell: curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login
-  register: result
-  retries: 15
-  delay: 20
-  until: result.stdout == "200"
+    - name: Wait for Jenkins to come back online
+      shell: curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login
+      register: result
+      retries: 15
+      delay: 20
+      until: result.stdout == "200"
 
 #####################################################
 # Create Jenkins Job from XML Config
 #####################################################
 
-- name: Create Jenkins Job
-  shell: |
-    curl -X POST "http://admin:{{ jenkins_password }}@localhost:8080/createItem?name=GitHub-Pipeline" \
-    -H "Content-Type: application/xml" \
-    --data-binary "@{{ playbook_dir }}/pipeline.xml"
-  register: jenkins_job_response
-  failed_when: jenkins_job_response.rc != 0
-  changed_when: false
+    - name: Create Jenkins Job
+      shell: |
+        curl -X POST "http://admin:{{ jenkins_password }}@localhost:8080/createItem?name=GitHub-Pipeline" \
+        -H "Content-Type: application/xml" \
+        --data-binary "@{{ playbook_dir }}/pipeline.xml"
+      register: jenkins_job_response
+      failed_when: jenkins_job_response.rc != 0
+      changed_when: false
 
-- name: Debug Jenkins Job Creation Response
-  debug:
-    msg: "Jenkins Job Creation Response: {{ jenkins_job_response.stdout }}"
+    - name: Debug Jenkins Job Creation Response
+      debug:
+        msg: "Jenkins Job Creation Response: {{ jenkins_job_response.stdout }}"
 
 #####################################################
 # Run Jenkins Pipeline Job
 #####################################################
 
-- name: Run Jenkins Pipeline Job
-  shell: curl -X POST "http://admin:{{ jenkins_password }}@localhost:8080/job/GitHub-Pipeline/build"
-  register: jenkins_build_response
-  failed_when: jenkins_build_response.rc != 0
-  changed_when: false
+    - name: Run Jenkins Pipeline Job
+      shell: curl -X POST "http://admin:{{ jenkins_password }}@localhost:8080/job/GitHub-Pipeline/build"
+      register: jenkins_build_response
+      failed_when: jenkins_build_response.rc != 0
+      changed_when: false
 
-- name: Debug Jenkins Build Response
-  debug:
-    msg: "Jenkins Build Response: {{ jenkins_build_response.stdout }}"
+    - name: Debug Jenkins Build Response
+      debug:
+        msg: "Jenkins Build Response: {{ jenkins_build_response.stdout }}"
