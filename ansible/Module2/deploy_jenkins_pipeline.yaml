@@ -5,98 +5,63 @@
 
   tasks:
 
-
-    ####################################################
-    # Retrieve GitHub Credentials from AWS Secrets Manager
-    ####################################################
-    - name: Get GitHub Repo URL
+    #####################################################
+    # ✅ Retrieve GitHub Repo URL from Secrets Manager
+    #####################################################
+    - name: Retrieve GitHub Repo URL from Secrets Manager
       shell: >
-        aws secretsmanager get-secret-value --secret-id github_repo_url_secret_name --query SecretString --output text | jq -r '.GH_REPO_URL'
+        aws secretsmanager get-secret-value --secret-id arn:aws:secretsmanager:eu-west-1:329599661643:secret:github_repo_url_secret_name-TFXRnu --query SecretString --output text | jq -r '.GH_REPO_URL'
       register: github_repo_url
       failed_when: github_repo_url.stdout == ""
 
-    - name: Get GitHub Username
+    - name: Clean GitHub Repo URL
+      set_fact:
+        clean_github_repo_url: "{{ github_repo_url.stdout | trim }}"
+
+    #####################################################
+    # ✅ Retrieve GitHub Username from Secrets Manager
+    #####################################################
+    - name: Retrieve GitHub Username from Secrets Manager
       shell: >
-        aws secretsmanager get-secret-value --secret-id github_user --query SecretString --output text | jq -r '.GH_USER'
+        aws secretsmanager get-secret-value --secret-id arn:aws:secretsmanager:eu-west-1:329599661643:secret:github_user_secret_name-TFXRnu --query SecretString --output text | jq -r '.GH_USER'
       register: github_user
       failed_when: github_user.stdout == ""
 
-    - name: Get GitHub Token
+    #####################################################
+    # ✅ Retrieve GitHub Token from Secrets Manager
+    #####################################################
+    - name: Retrieve GitHub Token from Secrets Manager
       shell: >
-        aws secretsmanager get-secret-value --secret-id github_token --query SecretString --output text | jq -r '.GH_TOKEN'
+        aws secretsmanager get-secret-value --secret-id arn:aws:secretsmanager:eu-west-1:329599661643:secret:github_token_secret_name-TFXRnu --query SecretString --output text | jq -r '.GH_TOKEN'
       register: github_token
       failed_when: github_token.stdout == ""
 
-    ####################################################
-    # Trigger Jenkins Job with Parameters
-    ####################################################
-    - name: Trigger Jenkins Job
-      shell: |
-        curl -X POST "http://{{ inventory_hostname }}:30080/job/python-app-deploy/buildWithParameters" \
-        --user "admin:admin_jenkins_api_token" \
-        --data-urlencode "GH_USER={{ github_user.stdout | trim }}" \
-        --data-urlencode "GH_TOKEN={{ github_token.stdout | trim }}" \
-        --data-urlencode "GH_REPO_URL={{ github_repo_url.stdout | trim }}"
-      register: jenkins_trigger
-      failed_when: jenkins_trigger.rc != 0
-
-    - name: Show Jenkins Trigger Output
-      debug:
-        msg: "Trigger Response: {{ jenkins_trigger.stdout }}"
-
-    ####################################################
-    # Install GitHub Plugin in Jenkins
-    ####################################################
+    #####################################################
+    # ✅ Install GitHub Plugin in Jenkins using Jenkins CLI
+    #####################################################
     - name: Download Jenkins CLI jar
-      shell: curl -o /tmp/jenkins-cli.jar http://{{ inventory_hostname }}:30080/jnlpJars/jenkins-cli.jar
+      get_url:
+        url: "http://{{ inventory_hostname }}:30080/jnlpJars/jenkins-cli.jar"
+        dest: "/tmp/jenkins-cli.jar"
       register: download_jenkins_cli
+      until: download_jenkins_cli is succeeded
       retries: 10
       delay: 10
 
     - name: Download GitHub plugin
-      shell: curl -o /tmp/github.hpi https://updates.jenkins.io/download/plugins/github/1.42.0/github.hpi
+      get_url:
+        url: "https://updates.jenkins.io/download/plugins/github/1.42.0/github.hpi"
+        dest: "/tmp/github.hpi"
       register: download_github_plugin
+      until: download_github_plugin is succeeded
       retries: 10
       delay: 10
 
     - name: Install GitHub plugin
-      shell: java -jar /tmp/jenkins-cli.jar -s http://{{ inventory_hostname }}:30080 -auth "admin:{{ jenkins_password }}" install-plugin github -restart
-      register: install_github_plugin
-      retries: 10
-      delay: 10
-
-    - name: Wait for Jenkins to come back online
-      shell: curl -s -o /dev/null -w "%{http_code}" http://{{ inventory_hostname }}:30080/login
-      register: result
-      retries: 15
-      delay: 20
-      until: result.stdout == "200"
-
-    ####################################################
-    # Create Jenkins Job from XML Config
-    ####################################################
-    - name: Create Jenkins Job
       shell: |
-        curl -X POST "http://admin:{{ jenkins_password }}@{{ inventory_hostname }}:30080/createItem?name=GitHub-Pipeline" \
-        -H "Content-Type: application/xml" \
-        --data-binary "@{{ playbook_dir }}/pipeline.xml"
-      register: jenkins_job_response
-      failed_when: jenkins_job_response.rc != 0
-      changed_when: false
-
-    - name: Debug Jenkins Job Creation Response
-      debug:
-        msg: "Jenkins Job Creation Response: {{ jenkins_job_response.stdout }}"
-
-    ####################################################
-    # Run Jenkins Pipeline Job
-    ####################################################
-    - name: Run Jenkins Pipeline Job
-      shell: curl -X POST "http://admin:{{ jenkins_password }}@{{ inventory_hostname }}:30080/job/GitHub-Pipeline/build"
-      register: jenkins_build_response
-      failed_when: jenkins_build_response.rc != 0
-      changed_when: false
-
-    - name: Debug Jenkins Build Response
-      debug:
-        msg: "Jenkins Build Response: {{ jenkins_build_response.stdout }}"
+        java -jar /tmp/jenkins-cli.jar -s http://{{ inventory_hostname }}:30080 -auth "admin:{{ jenkins_password }}" install-plugin github -restart
+      environment:
+        JENKINS_USER: "admin"
+        JENKINS_PASSWORD: "{{ jenkins_password }}"
+      register: install_github_plugin
+      until: install_github_plugin.rc == 0
