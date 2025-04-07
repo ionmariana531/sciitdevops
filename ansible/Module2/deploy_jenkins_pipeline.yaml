@@ -26,11 +26,11 @@
       failed_when: github_token.stdout == ""
 
     ####################################################
-    # Trigger Jenkins Job with Parameters from Secrets Manager
+    # Trigger Jenkins Job with Parameters
     ####################################################
     - name: Trigger Jenkins Job
       shell: |
-        curl -X POST "http://{{ inventory_hostname }}:8080/job/python-app-deploy/buildWithParameters" \
+        curl -X POST "http://{{ inventory_hostname }}:30080/job/python-app-deploy/buildWithParameters" \
         --user "admin:admin_jenkins_api_token" \
         --data-urlencode "GH_USER={{ github_user.stdout | trim }}" \
         --data-urlencode "GH_TOKEN={{ github_token.stdout | trim }}" \
@@ -42,12 +42,11 @@
       debug:
         msg: "Trigger Response: {{ jenkins_trigger.stdout }}"
 
-#####################################################
+####################################################
 # Install GitHub Plugin in Jenkins
-#####################################################
-
+####################################################
     - name: Download Jenkins CLI jar
-      shell: curl -o /tmp/jenkins-cli.jar https://jenkins.k8s.it.com/jnlpJars/jenkins-cli.jar
+      shell: curl -o /tmp/jenkins-cli.jar http://{{ inventory_hostname }}:30080/jnlpJars/jenkins-cli.jar
       register: download_jenkins_cli
       retries: 10
       delay: 10
@@ -59,25 +58,24 @@
       delay: 10
 
     - name: Install GitHub plugin
-      shell: java -jar /tmp/jenkins-cli.jar -s http://localhost:8080 -auth "admin:{{ jenkins_password }}" install-plugin github -restart
+      shell: java -jar /tmp/jenkins-cli.jar -s http://{{ inventory_hostname }}:30080 -auth "admin:{{ jenkins_password }}" install-plugin github -restart
       register: install_github_plugin
       retries: 10
       delay: 10
 
     - name: Wait for Jenkins to come back online
-      shell: curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login
+      shell: curl -s -o /dev/null -w "%{http_code}" http://{{ inventory_hostname }}:30080/login
       register: result
       retries: 15
       delay: 20
       until: result.stdout == "200"
 
-#####################################################
+####################################################
 # Create Jenkins Job from XML Config
-#####################################################
-
+####################################################
     - name: Create Jenkins Job
       shell: |
-        curl -X POST "http://admin:{{ jenkins_password }}@localhost:8080/createItem?name=GitHub-Pipeline" \
+        curl -X POST "http://admin:{{ jenkins_password }}@{{ inventory_hostname }}:30080/createItem?name=GitHub-Pipeline" \
         -H "Content-Type: application/xml" \
         --data-binary "@{{ playbook_dir }}/pipeline.xml"
       register: jenkins_job_response
@@ -88,12 +86,11 @@
       debug:
         msg: "Jenkins Job Creation Response: {{ jenkins_job_response.stdout }}"
 
-#####################################################
+####################################################
 # Run Jenkins Pipeline Job
-#####################################################
-
+####################################################
     - name: Run Jenkins Pipeline Job
-      shell: curl -X POST "http://admin:{{ jenkins_password }}@localhost:8080/job/GitHub-Pipeline/build"
+      shell: curl -X POST "http://admin:{{ jenkins_password }}@{{ inventory_hostname }}:30080/job/GitHub-Pipeline/build"
       register: jenkins_build_response
       failed_when: jenkins_build_response.rc != 0
       changed_when: false
