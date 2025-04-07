@@ -1,13 +1,9 @@
 ---
 - name: Deploy Jenkins Pipeline using AWS Secrets Manager
-  hosts: master 
+  hosts: master
   become: yes
-  vars:
-    ansible_python_interpreter: /usr/bin/python3
 
   tasks:
-    - name: Verify Python version
-      command: python3 --version
 
     - name: Retrieve secret from Secrets Manager
       shell: >
@@ -18,12 +14,13 @@
     - name: Display the secret
       debug:
         var: secret_data
+
     ####################################################
     # Retrieve GitHub Credentials from AWS Secrets Manager
     ####################################################
     - name: Get GitHub Repo URL
       shell: >
-        aws secretsmanager get-secret-value --secret-id github_repo_url --query SecretString --output text | jq -r '.GH_REPO_URL'
+        aws secretsmanager get-secret-value --secret-id github_repo_url_secret_name --query SecretString --output text | jq -r '.GH_REPO_URL'
       register: github_repo_url
       failed_when: github_repo_url.stdout == ""
 
@@ -56,9 +53,9 @@
       debug:
         msg: "Trigger Response: {{ jenkins_trigger.stdout }}"
 
-####################################################
-# Install GitHub Plugin in Jenkins
-####################################################
+    ####################################################
+    # Install GitHub Plugin in Jenkins
+    ####################################################
     - name: Download Jenkins CLI jar
       shell: curl -o /tmp/jenkins-cli.jar http://{{ inventory_hostname }}:30080/jnlpJars/jenkins-cli.jar
       register: download_jenkins_cli
@@ -84,9 +81,9 @@
       delay: 20
       until: result.stdout == "200"
 
-####################################################
-# Create Jenkins Job from XML Config
-####################################################
+    ####################################################
+    # Create Jenkins Job from XML Config
+    ####################################################
     - name: Create Jenkins Job
       shell: |
         curl -X POST "http://admin:{{ jenkins_password }}@{{ inventory_hostname }}:30080/createItem?name=GitHub-Pipeline" \
@@ -100,9 +97,9 @@
       debug:
         msg: "Jenkins Job Creation Response: {{ jenkins_job_response.stdout }}"
 
-####################################################
-# Run Jenkins Pipeline Job
-####################################################
+    ####################################################
+    # Run Jenkins Pipeline Job
+    ####################################################
     - name: Run Jenkins Pipeline Job
       shell: curl -X POST "http://admin:{{ jenkins_password }}@{{ inventory_hostname }}:30080/job/GitHub-Pipeline/build"
       register: jenkins_build_response
