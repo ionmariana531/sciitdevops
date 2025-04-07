@@ -5,15 +5,6 @@
 
   tasks:
 
-    - name: Retrieve secret from Secrets Manager
-      shell: >
-        aws secretsmanager get-secret-value --secret-id "{{ secret_name }}" --query SecretString --output text
-      register: secret_data
-      failed_when: secret_data.stdout == ""
-
-    - name: Display the secret
-      debug:
-        var: secret_data
 
     ####################################################
     # Retrieve GitHub Credentials from AWS Secrets Manager
