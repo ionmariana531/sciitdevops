@@ -1,6 +1,6 @@
 ---
 - name: Deploy Jenkins Pipeline using AWS Secrets Manager
-  hosts: jenkins_server
+  hosts: master 
   become: yes
 
   tasks:
