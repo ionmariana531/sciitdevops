@@ -2,8 +2,13 @@
 - name: Deploy Jenkins Pipeline using AWS Secrets Manager
   hosts: master 
   become: yes
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
 
   tasks:
+    - name: Verify Python version
+      command: python3 --version
+
     - name: Retrieve secret from Secrets Manager
       shell: >
         aws secretsmanager get-secret-value --secret-id "{{ secret_name }}" --query SecretString --output text
