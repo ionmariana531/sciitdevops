@@ -8,3 +8,5 @@
 *.tfstate.backup
 *.tfstate
 *.tfstate.backup
+
+group_vars/all.yaml
