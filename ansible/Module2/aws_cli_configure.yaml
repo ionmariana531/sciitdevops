@@ -3,10 +3,22 @@
   become: yes
 
   tasks:
-    - name: Ensure AWS CLI is installed
-      package:
-        name: awscli
-        state: present
+    - name: Install AWS CLI v2 and configure it
+      shell: |
+        # Install dependencies
+        apt update && apt install -y curl unzip
+
+        # Download AWS CLI v2
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+
+        # Unzip the AWS CLI v2 zip file directly to /home/ubuntu
+        unzip /tmp/awscliv2.zip -d /home/ubuntu/
+
+        # Install AWS CLI v2
+        /home/ubuntu/aws/install
+
+        # Verify AWS CLI installation
+        /home/ubuntu/aws/bin/aws --version
 
     - name: Configure AWS CLI with access key
       shell: aws configure set aws_access_key_id {{ aws_access_key_id }}
