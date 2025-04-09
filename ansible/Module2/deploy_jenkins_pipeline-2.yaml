@@ -1,0 +1,127 @@
+---
+- name: Deploy Jenkins Pipeline
+  hosts: master
+  become: true
+  collections:
+    - amazon.aws
+  vars_files:
+    - /home/ubuntu_fe/terraform/aws/sciitdevops/group_vars/all.yaml
+
+  tasks:
+    # Task pentru instalarea colecției amazon.aws pe EC2
+    - name: Install amazon.aws collection
+      become: true
+      command: ansible-galaxy collection install amazon.aws --force
+
+    - name: Install Terraform
+      become: true
+      shell: |
+        curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+        https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+        sudo apt update
+        sudo apt install terraform
+      when: ansible_os_family == "Debian"
+
+    - name: Get public IP from inventory using terraform output
+      shell: |
+        INSTANCE_PUBLIC_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+        echo "Public IP is $INSTANCE_PUBLIC_IP"
+        echo "$INSTANCE_PUBLIC_IP" > /tmp/public_ip.txt
+      register: instance_ip
+
+    - name: Display IP
+      debug:
+        msg: "Public IP of the instance is {{ instance_ip.stdout }}"
+
+    - name: Install ACL package
+      apt:
+        name: acl
+        state: present
+
+    - name: Get Jenkins NodePort
+      shell: |
+        kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
+        get svc jenkins -n jenkins -o jsonpath='{.spec.ports[0].nodePort}'
+      register: jenkins_nodeport
+      changed_when: false
+
+    - name: Construct Jenkins URL
+      set_fact:
+        jenkins_url: "http://{{ instance_ip.stdout }}:{{ jenkins_nodeport.stdout | default('none') }}"
+
+    - name: Display Jenkins URL
+      debug:
+        msg: "Jenkins is available at {{ jenkins_url }}"
+
+    - name: Get Jenkins pod name
+      shell: "kubectl get pods -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'"
+      register: jenkins_pod_name
+
+    - name: Get Jenkins initial admin password using kubectl
+      shell: kubectl exec -n jenkins {{ jenkins_pod_name.stdout }} -- cat /var/jenkins_home/secrets/initialAdminPassword
+      register: jenkins_admin_password
+      no_log: false  # pentru a afișa parola în output-ul ansible
+
+    - name: Show Jenkins admin password
+      debug:
+        msg: "Jenkins Admin Password: {{ jenkins_admin_password.stdout }}"
+
+    - name: Download Jenkins CLI jar
+      get_url:
+        url: "{{ jenkins_url }}/jnlpJars/jenkins-cli.jar"
+        dest: "/tmp/jenkins-cli.jar"
+
+    - name: Install OpenJDK 17
+      become: true
+      apt:
+        name: openjdk-17-jre
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Set JAVA_HOME for current session
+      become: true
+      shell: |
+        export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java)))) )
+        echo "JAVA_HOME=$JAVA_HOME" >> /etc/profile
+      when: ansible_os_family == "Debian"
+
+    - name: Install GitHub plugin using jenkins-cli without restart
+      shell: |
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" install-plugin github
+      register: github_plugin_result
+
+    - name: Restart Jenkins to apply plugin (only if needed)
+      shell: |
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" safe-restart
+      when: github_plugin_result.rc == 0
+
+    - name: Wait for Jenkins to come back online
+      uri:
+        url: "{{ jenkins_url }}/login"
+        method: GET
+        status_code: 200
+        validate_certs: no
+      register: result
+      until: result.status == 200
+      retries: 15    # Încearcă de 15 ori (~5 minute)
+      delay: 20      # Așteaptă 20 secunde între încercări
+
+    - name: Get AWS Credentials from Secrets Manager using lookup
+      ansible.builtin.debug:
+        msg: >
+          "{{ lookup('amazon.aws.aws_secret', 'github_repo_url_secret_name',
+             region='eu-west-1', profile='my_aws_profile', nested=true) }}"
+
+    - name: Create AWS Credentials in Jenkins from Secrets Manager
+      community.general.jenkins_credential:
+        url: "{{ jenkins_url }}"
+        user: "admin"
+        password: "{{ jenkins_admin_password.stdout }}"
+        credential_type: "username_password"
+        id: "aws-credentials"
+        description: "AWS Credentials for Terraform / Ansible"
+        username: "{{ aws_credentials.secret.access_key }}"  # Din Secrets Manager
+        password_aws: "{{ aws_credentials.secret.secret_key }}"  # Din Secrets Manager
+      no_log: true  # Pentru a nu afișa cheile în loguri
+
