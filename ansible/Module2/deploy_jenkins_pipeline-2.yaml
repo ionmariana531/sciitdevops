@@ -19,13 +19,13 @@
 
     - name: Copy inventory.ini from runner to remote EC2 instance
       copy:
-        src: ansible/inventory.ini  # Calea relativă corectă pe runner
-        dest: /home/ubuntu/.ansible/inventory.ini  # Calea de pe instanța EC2
+        src: /home/runner/work/sciitdevops/sciitdevops/ansible/inventory.ini
+        dest: /home/ubuntu/.ansible/inventory.ini  
         remote_src: no
 
     - name: Read inventory.ini to get the public IP
       shell: |
-        INSTANCE_PUBLIC_IP=$(grep -oP '(?<=\[master\]\n)[^\n]+' ansible/inventory.ini | awk '{print $1}')
+        INSTANCE_PUBLIC_IP=$(grep -oP '(?<=\[master\]\n)[^\n]+' /home/ubuntu/.ansible/inventory.ini | awk '{print $1}')
         echo "Public IP is $INSTANCE_PUBLIC_IP"
         echo "$INSTANCE_PUBLIC_IP" > /tmp/public_ip.txt
       register: instance_ip
