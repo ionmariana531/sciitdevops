@@ -102,7 +102,7 @@
       delay: 20      # Așteaptă 20 secunde între încercări
 
     - name: Get AWS Access Key from Secrets Manager
-      amazon.aws.aws_secretsmanager:
+      amazon.aws.secretsmanager_secret:
         name: "aws_credentials_secret_name"  # Numele secretului din AWS
         region: "eu-west-1"
         profile: "my_aws_profile"
