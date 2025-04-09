@@ -108,11 +108,12 @@
       retries: 15    # Încearcă de 15 ori (~5 minute)
       delay: 20      # Așteaptă 20 secunde între încercări
 
-    - name: Get AWS Credentials from Secrets Manager using lookup
-      ansible.builtin.debug:
-        msg: >
-          "{{ lookup('amazon.aws.aws_secret', 'github_repo_url_secret_name',
-             region='eu-west-1', profile='my_aws_profile', nested=true) }}"
+    - name: Get AWS Access Key from Secrets Manager
+      amazon.aws.aws_secretsmanager:
+        name: "aws_credentials_secret_name"  # Numele secretului din AWS
+        region: "eu-west-1"
+        profile: "my_aws_profile"
+      register: aws_secret
 
     - name: Create AWS Credentials in Jenkins from Secrets Manager
       community.general.jenkins_credential:
@@ -122,8 +123,8 @@
         credential_type: "username_password"
         id: "aws-credentials"
         description: "AWS Credentials for Terraform / Ansible"
-        username: "{{ lookup('amazon.aws.aws_secret', 'aws_access_key_id', region='eu-west-1', profile='my_aws_profile') }}"  # Din Secrets Manager
-        password_aws: "{{ lookup('amazon.aws.aws_secret', 'aws_secret_access_key', region='eu-west-1', profile='my_aws_profile') }}"  # Din Secrets Manager
+        username: "{{ aws_secret.secret['aws_access_key_id'] }}"  # Folosind valorile extrase
+        password_aws: "{{ aws_secret.secret['aws_secret_access_key'] }}"  # Folosind valorile extrase
       no_log: true  # Pentru a nu afișa cheile în loguri
 
     - name: Install Jenkins plugin for AWS integration
