@@ -25,7 +25,7 @@
 
     - name: Read inventory.ini to get the public IP
       shell: |
-        INSTANCE_PUBLIC_IP=$(grep -oP '(?<=\[master\]\n)[^\n]+' /home/ubuntu/.ansible/inventory.ini | awk '{print $1}')
+        INSTANCE_PUBLIC_IP=$(awk '/\[master\]/{getline; print $1}' /home/ubuntu/.ansible/inventory.ini)
         echo "Public IP is $INSTANCE_PUBLIC_IP"
         echo "$INSTANCE_PUBLIC_IP" > /tmp/public_ip.txt
       register: instance_ip
