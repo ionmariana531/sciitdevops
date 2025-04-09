@@ -17,11 +17,11 @@
         sudo apt install terraform
       when: ansible_os_family == "Debian"
 
-    - name: Create /tmp directory if it doesn't exist
-      file:
-        path: /tmp
-        state: directory
-        mode: '0755'
+    - name: Copy inventory.ini from runner to remote EC2 instance
+      copy:
+        src: ansible/inventory.ini  # Calea relativă corectă pe runner
+        dest: /home/ubuntu/.ansible/inventory.ini  # Calea de pe instanța EC2
+      delegate_to: localhost  # Task-ul se va executa pe runner
 
     - name: Read inventory.ini to get the public IP
       shell: |
@@ -30,9 +30,9 @@
         echo "$INSTANCE_PUBLIC_IP" > /tmp/public_ip.txt
       register: instance_ip
 
-    - name: Display IP
+    - name: Display the extracted IP
       debug:
-        msg: "Public IP of the instance is {{ instance_ip.stdout }}"
+        msg: "The public IP is: {{ instance_ip.stdout }}"
 
     - name: Install ACL package
       apt:
