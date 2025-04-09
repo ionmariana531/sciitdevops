@@ -101,9 +101,9 @@
       delay: 20      # Așteaptă 20 secunde între încercări
 
     - name: Get AWS Credentials from Secrets Manager
-      amazon.aws.aws_secret:
-        secret_name: "github_repo_url_secret_name"
-        region: "{{ eu-west-1 }}"
+      amazon.aws.secretsmanager_secret:
+        secret_id: "github_repo_url_secret_name"
+        region: "eu-west-1"
       register: aws_credentials
       no_log: true
 
@@ -116,5 +116,5 @@
         id: "aws-credentials"
         description: "AWS Credentials for Terraform / Ansible"
         username: "{{ aws_credentials.secret.access_key }}"  # Din Secrets Manager
-        password: "{{ aws_credentials.secret.secret_key }}"  # Din Secrets Manager
+        password_aws: "{{ aws_credentials.secret.secret_key }}"  # Din Secrets Manager
       no_log: true  # Pentru a nu afișa cheile în loguri
