@@ -2,18 +2,11 @@
 - name: Deploy Jenkins Pipeline
   hosts: master
   become: true
-  collections:
-    - amazon.aws
-    - community.general
   vars_files:
     - /home/ubuntu_fe/terraform/aws/sciitdevops/group_vars/all.yaml
 
   tasks:
-    # Task pentru instalarea colecției amazon.aws pe EC2
-    - name: Install amazon.aws collection
-      become: true
-      command: ansible-galaxy collection install amazon.aws --force
-
+    # Task pentru instalarea Terraform
     - name: Install Terraform
       become: true
       shell: |
@@ -116,16 +109,27 @@
       register: aws_secret
 
     - name: Create AWS Credentials in Jenkins from Secrets Manager
-      community.general.jenkins_credential:
+      community.general.jenkins_script:
         url: "{{ jenkins_url }}"
         user: "admin"
         password: "{{ jenkins_admin_password.stdout }}"
-        credential_type: "username_password"
-        id: "aws-credentials"
-        description: "AWS Credentials for Terraform / Ansible"
-        username: "{{ aws_secret.secret['aws_access_key_id'] }}"  # Folosind valorile extrase
-        password_aws: "{{ aws_secret.secret['aws_secret_access_key'] }}"  # Folosind valorile extrase
-      no_log: true  # Pentru a nu afișa cheile în loguri
+        script: |
+          import com.cloudbees.plugins.credentials.*
+          import com.cloudbees.plugins.credentials.domains.*
+          import com.cloudbees.plugins.credentials.impl.*
+          import hudson.util.Secret
+          def credentials_store = Jenkins.instance.getExtensionList('com.cloudbees.plugins.credentials.SystemCredentialsProvider')[0].getStore()
+
+          def credentials = new UsernamePasswordCredentialsImpl(
+              CredentialsScope.GLOBAL,
+              "aws-credentials",
+              "AWS Credentials for Terraform / Ansible",
+              "{{ aws_secret.secret['aws_access_key_id'] }}",
+              "{{ aws_secret.secret['aws_secret_access_key'] }}"
+          )
+
+          credentials_store.addCredentials(Domain.global(), credentials)
+      no_log: true  # pentru a nu afișa cheile în loguri
 
     - name: Install Jenkins plugin for AWS integration
       community.general.jenkins_plugin:
@@ -140,3 +144,4 @@
       shell: |
         java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" safe-restart
       when: aws_plugin_result.rc == 0
+
