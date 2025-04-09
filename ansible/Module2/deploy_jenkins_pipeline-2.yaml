@@ -21,7 +21,7 @@
       copy:
         src: ansible/inventory.ini  # Calea relativă corectă pe runner
         dest: /home/ubuntu/.ansible/inventory.ini  # Calea de pe instanța EC2
-      delegate_to: localhost  # Task-ul se va executa pe runner
+        remote_src: no
 
     - name: Read inventory.ini to get the public IP
       shell: |
