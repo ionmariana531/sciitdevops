@@ -2,6 +2,8 @@
 - name: Deploy Jenkins Pipeline
   hosts: master
   become: true
+  collections:
+    - amazon.aws
   vars_files:
     - /home/ubuntu_fe/terraform/aws/sciitdevops/group_vars/all.yaml
 
@@ -9,9 +11,7 @@
     # Task pentru instalarea colecției amazon.aws pe EC2
     - name: Install amazon.aws collection
       become: true
-      ansible.builtin.pip:
-        name: ansible[amazon]
-        state: present
+      command: ansible-galaxy collection install amazon.aws --force
 
     - name: Install Terraform
       become: true
