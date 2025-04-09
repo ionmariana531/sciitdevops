@@ -4,6 +4,7 @@
   become: true
   collections:
     - amazon.aws
+    - community.general
   vars_files:
     - /home/ubuntu_fe/terraform/aws/sciitdevops/group_vars/all.yaml
 
@@ -121,7 +122,20 @@
         credential_type: "username_password"
         id: "aws-credentials"
         description: "AWS Credentials for Terraform / Ansible"
-        username: "{{ aws_credentials.secret.access_key }}"  # Din Secrets Manager
-        password_aws: "{{ aws_credentials.secret.secret_key }}"  # Din Secrets Manager
+        username: "{{ lookup('amazon.aws.aws_secret', 'aws_access_key_id', region='eu-west-1', profile='my_aws_profile') }}"  # Din Secrets Manager
+        password_aws: "{{ lookup('amazon.aws.aws_secret', 'aws_secret_access_key', region='eu-west-1', profile='my_aws_profile') }}"  # Din Secrets Manager
       no_log: true  # Pentru a nu afișa cheile în loguri
 
+    - name: Install Jenkins plugin for AWS integration
+      community.general.jenkins_plugin:
+        name: "amazon-ecs"
+        url: "{{ jenkins_url }}"
+        user: "admin"
+        password: "{{ jenkins_admin_password.stdout }}"
+        state: latest
+      register: aws_plugin_result
+
+    - name: Restart Jenkins after installing AWS plugin (if needed)
+      shell: |
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" safe-restart
+      when: aws_plugin_result.rc == 0
