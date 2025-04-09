@@ -17,9 +17,15 @@
         sudo apt install terraform
       when: ansible_os_family == "Debian"
 
-    - name: Get public IP from inventory using terraform output
+    - name: Create /tmp directory if it doesn't exist
+      file:
+        path: /tmp
+        state: directory
+        mode: '0755'
+
+    - name: Read inventory.ini to get the public IP
       shell: |
-        INSTANCE_PUBLIC_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+        INSTANCE_PUBLIC_IP=$(grep -oP '(?<=\[master\]\n)[^\n]+' ansible/inventory.ini | awk '{print $1}')
         echo "Public IP is $INSTANCE_PUBLIC_IP"
         echo "$INSTANCE_PUBLIC_IP" > /tmp/public_ip.txt
       register: instance_ip
