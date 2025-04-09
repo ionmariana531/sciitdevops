@@ -4,3 +4,5 @@ collections:
     version: 5.1.0
   - name: community.kubernetes
     version: 2.0.1 
+  - name: community.general
+    version: 8.5.0

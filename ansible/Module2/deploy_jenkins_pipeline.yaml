@@ -1,67 +1,118 @@
 ---
-- name: Deploy Jenkins Pipeline using AWS Secrets Manager
+- name: Deploy Jenkins Pipeline
   hosts: master
   become: yes
-
+  vars_files:
+    - /home/ubuntu_fe/terraform/aws/sciitdevops/group_vars/all.yaml
+  
   tasks:
+    - name: Install Terraform
+      become: yes
+      shell: |
+        curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+        sudo apt update
+        sudo apt install terraform
+      when: ansible_os_family == "Debian"
+	  
+    - name: Get public IP from inventory using terraform output
+      shell: |
+        INSTANCE_PUBLIC_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+        echo "Public IP is $INSTANCE_PUBLIC_IP"
+        echo "$INSTANCE_PUBLIC_IP" > /tmp/public_ip.txt
+      register: instance_ip
 
-    #####################################################
-    # ✅ Retrieve GitHub Repo URL from Secrets Manager
-    #####################################################
-    - name: Retrieve GitHub Repo URL from Secrets Manager
-      shell: >
-        aws secretsmanager get-secret-value --secret-id arn:aws:secretsmanager:eu-west-1:329599661643:secret:github_repo_url_secret_name-TFXRnu --query SecretString --output text | jq -r '.GH_REPO_URL'
-      register: github_repo_url
-      failed_when: github_repo_url.stdout == ""
+    - name: Display IP
+      debug:
+        msg: "Public IP of the instance is {{ instance_ip.stdout }}"
 
-    - name: Clean GitHub Repo URL
+    - name: Install ACL package
+      apt:
+        name: acl
+        state: present
+
+    - name: Get Jenkins NodePort
+      shell: |
+        kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
+        get svc jenkins -n jenkins -o jsonpath='{.spec.ports[0].nodePort}'
+      register: jenkins_nodeport
+      changed_when: false
+    - name: Construct Jenkins URL
       set_fact:
-        clean_github_repo_url: "{{ github_repo_url.stdout | trim }}"
+        jenkins_url: "http://{{ instance_ip.stdout }}:{{ jenkins_nodeport.stdout | default('none') }}"
 
-    #####################################################
-    # ✅ Retrieve GitHub Username from Secrets Manager
-    #####################################################
-    - name: Retrieve GitHub Username from Secrets Manager
-      shell: >
-        aws secretsmanager get-secret-value --secret-id arn:aws:secretsmanager:eu-west-1:329599661643:secret:github_user_secret_name-TFXRnu --query SecretString --output text | jq -r '.GH_USER'
-      register: github_user
-      failed_when: github_user.stdout == ""
+    - name: Display Jenkins URL
+      debug:
+        msg: "Jenkins is available at {{ jenkins_url }}"
+		
+    - name: Get Jenkins pod name
+      shell: "kubectl get pods -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'"
+      register: jenkins_pod_name
 
-    #####################################################
-    # ✅ Retrieve GitHub Token from Secrets Manager
-    #####################################################
-    - name: Retrieve GitHub Token from Secrets Manager
-      shell: >
-        aws secretsmanager get-secret-value --secret-id arn:aws:secretsmanager:eu-west-1:329599661643:secret:github_token_secret_name-TFXRnu --query SecretString --output text | jq -r '.GH_TOKEN'
-      register: github_token
-      failed_when: github_token.stdout == ""
+    - name: Get Jenkins initial admin password using kubectl
+      shell: kubectl exec -n jenkins {{ jenkins_pod_name.stdout }} -- cat /var/jenkins_home/secrets/initialAdminPassword
+      register: jenkins_admin_password
+      no_log: false  # pentru a afișa parola în output-ul ansible
 
-    #####################################################
-    # ✅ Install GitHub Plugin in Jenkins using Jenkins CLI
-    #####################################################
+    - name: Show Jenkins admin password
+      debug:
+        msg: "Jenkins Admin Password: {{ jenkins_admin_password.stdout }}"
+
     - name: Download Jenkins CLI jar
       get_url:
-        url: "http://{{ inventory_hostname }}:30080/jnlpJars/jenkins-cli.jar"
+        url: "{{ jenkins_url }}/jnlpJars/jenkins-cli.jar"
         dest: "/tmp/jenkins-cli.jar"
-      register: download_jenkins_cli
-      until: download_jenkins_cli is succeeded
-      retries: 10
-      delay: 10
 
-    - name: Download GitHub plugin
-      get_url:
-        url: "https://updates.jenkins.io/download/plugins/github/1.42.0/github.hpi"
-        dest: "/tmp/github.hpi"
-      register: download_github_plugin
-      until: download_github_plugin is succeeded
-      retries: 10
-      delay: 10
+    - name: Install OpenJDK 17
+      become: yes
+      apt:
+        name: openjdk-17-jre
+        state: present
+      when: ansible_os_family == "Debian"
 
-    - name: Install GitHub plugin
+    - name: Set JAVA_HOME for current session
+      become: yes
       shell: |
-        java -jar /tmp/jenkins-cli.jar -s http://{{ inventory_hostname }}:30080 -auth "admin:{{ jenkins_password }}" install-plugin github -restart
-      environment:
-        JENKINS_USER: "admin"
-        JENKINS_PASSWORD: "{{ jenkins_password }}"
-      register: install_github_plugin
-      until: install_github_plugin.rc == 0
+        export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+        echo "JAVA_HOME=$JAVA_HOME" >> /etc/profile
+      when: ansible_os_family == "Debian"
+
+    - name: Install GitHub plugin using jenkins-cli without restart
+      shell: |
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" install-plugin github
+      register: github_plugin_result
+
+    - name: Restart Jenkins to apply plugin (only if needed)
+      shell: |
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" safe-restart
+      when: github_plugin_result.rc == 0
+
+    - name: Wait for Jenkins to come back online
+      uri:
+        url: "{{ jenkins_url }}/login"
+        method: GET
+        status_code: 200
+        validate_certs: no
+      register: result
+      until: result.status == 200
+      retries: 15    # Încearcă de 15 ori (~5 minute)
+      delay: 20      # Așteaptă 20 secunde între încercări
+	  
+    - name: Get AWS Credentials from Secrets Manager
+      amazon.aws.aws_secret:
+        secret_name: "github_repo_url_secret_name"  
+        region: "{{ eu-west-1 }}"
+      register: aws_credentials
+      no_log: true  
+	  
+    - name: Create AWS Credentials in Jenkins from Secrets Manager
+      community.general.jenkins_credential:
+        url: "{{ jenkins_url }}"
+        user: "admin"
+        password: "{{ jenkins_admin_password.stdout }}"
+        credential_type: "username_password"
+        id: "aws-credentials"
+        description: "AWS Credentials for Terraform / Ansible"
+        username: "{{ aws_credentials.secret.access_key }}"  # Din Secrets Manager
+        password: "{{ aws_credentials.secret.secret_key }}"  # Din Secrets Manager
+      no_log: true  # Pentru a nu afișa cheile în loguri
