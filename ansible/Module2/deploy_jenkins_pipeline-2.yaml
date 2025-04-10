@@ -20,8 +20,9 @@
     - name: Copy inventory.ini from runner to remote EC2 instance
       copy:
         src: /home/runner/work/sciitdevops/sciitdevops/ansible/inventory.ini
-        dest: /home/ubuntu/.ansible/inventory.ini  
+        dest: /home/ubuntu/.ansible/inventory.ini
         remote_src: no
+
     - name: Check if inventory.ini exists on remote
       ansible.builtin.stat:
         path: /home/ubuntu/.ansible/inventory.ini
@@ -33,14 +34,13 @@
       when: inventory_file.stat.exists
 
     - name: Read inventory.ini to get the public IP
-      shell: |
-        INSTANCE_PUBLIC_IP=$(awk '/\[master\]/{getline; print $1}' /home/ubuntu/.ansible/inventory.ini)
-        echo "$INSTANCE_PUBLIC_IP" > /tmp/public_ip.txt
+      shell: awk '/\[master\]/{getline; print $1}' /home/ubuntu/.ansible/inventory.ini
       register: instance_ip
+      changed_when: false
 
     - name: Display the extracted IP
       debug:
-        msg: "The public IP is: {{ instance_ip.stdout }}"
+        msg: "{{ instance_ip.stdout }}"
 
     - name: Install ACL package
       apt:
