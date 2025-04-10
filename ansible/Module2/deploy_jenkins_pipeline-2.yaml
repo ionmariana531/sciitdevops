@@ -22,6 +22,15 @@
         src: /home/runner/work/sciitdevops/sciitdevops/ansible/inventory.ini
         dest: /home/ubuntu/.ansible/inventory.ini  
         remote_src: no
+    - name: Check if inventory.ini exists on remote
+      ansible.builtin.stat:
+        path: /home/ubuntu/.ansible/inventory.ini
+      register: inventory_file
+
+    - name: Display result
+      debug:
+        msg: "Inventory file exists!"
+      when: inventory_file.stat.exists
 
     - name: Read inventory.ini to get the public IP
       shell: |
