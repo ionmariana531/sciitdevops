@@ -108,10 +108,12 @@
       retries: 15    # Încearcă de 15 ori (~5 minute)
       delay: 20      # Așteaptă 20 secunde între încercări
 
-    - name: Get AWS Access Key from Secrets Manager
-      ansible.builtin.debug:
-        msg: "{{ lookup('amazon.aws.aws_secret', 'aws_credentials_secret_name', region='eu-west-1', profile='my_aws_profile') }}"
-      register: aws_secret
+    - name: Get AWS Access Key from group_vars
+      set_fact:
+        aws_secret:
+          secret:
+            aws_access_key_id: "{{ aws_access_key_id }}"
+            aws_secret_access_key: "{{ aws_secret_access_key }}"
 
     - name: Create AWS Credentials in Jenkins from Secrets Manager
       community.general.jenkins_script:
