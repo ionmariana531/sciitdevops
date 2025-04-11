@@ -115,6 +115,16 @@
             aws_access_key_id: "{{ aws_access_key_id }}"
             aws_secret_access_key: "{{ aws_secret_access_key }}"
 
+    - name: Fetch AWS Access Keys for IAM user 'devops-user'
+      amazon.aws.iam_access_key_info:
+        user_name: devops-user
+      register: iam_keys_info
+
+    - name: Set AWS Access Key as environment variable for Jenkins
+      set_fact:
+        aws_access_key_id: "{{ iam_keys_info.access_keys[0].access_key_id }}"
+        aws_secret_access_key: "{{ iam_keys_info.access_keys[0].secret_access_key }}"
+
     - name: Create AWS Credentials in Jenkins from Secrets Manager
       community.general.jenkins_script:
         url: "{{ jenkins_url }}"
