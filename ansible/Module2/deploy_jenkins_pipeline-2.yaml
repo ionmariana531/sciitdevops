@@ -108,7 +108,9 @@
 
     - name: Load AWS credentials from group_vars?
       ansible.builtin.include_vars:
-        file: "ansible/Module2/group_vars/all.yaml"
+       dir: "./ansible/Module2/group_vars/all.yaml"
+       extensions:
+         - 'yaml'
 
     - name: Get AWS Access Key from group_vars
       set_fact:
