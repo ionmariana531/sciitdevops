@@ -111,6 +111,7 @@
       community.aws.iam_access_key_info:
         user_name: "devops-user"
       register: access_keys
+      delegate_to: localhost
 
     - name: Set AWS Access Key as environment variable for Jenkins
       set_fact:
