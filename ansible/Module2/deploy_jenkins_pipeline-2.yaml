@@ -108,8 +108,9 @@
 
 
     - name: Fetch AWS Access Keys for IAM user 'devops-user'
-      amazon.aws.iam_access_key_info:
-        user_name: devops-user
+      community.aws.iam_access_key_info:
+        user_name: "devops-user"
+      register: access_keys
 
     - name: Set AWS Access Key as environment variable for Jenkins
       set_fact:
