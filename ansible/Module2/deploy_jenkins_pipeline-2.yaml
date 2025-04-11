@@ -2,8 +2,6 @@
 - name: Deploy Jenkins Pipeline
   hosts: master
   become: true
-  vars_files:
-    - /home/ubuntu_fe/terraform/aws/sciitdevops/group_vars/all.yaml
 
   tasks:
     # Task pentru instalarea Terraform
@@ -107,6 +105,10 @@
       until: result.status == 200
       retries: 15    # Încearcă de 15 ori (~5 minute)
       delay: 20      # Așteaptă 20 secunde între încercări
+
+    - name: Load AWS credentials from group_vars
+      ansible.builtin.include_vars:
+        file: "../../group_vars/all.yaml"
 
     - name: Get AWS Access Key from group_vars
       set_fact:
