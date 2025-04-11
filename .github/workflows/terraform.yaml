@@ -147,8 +147,6 @@ jobs:
       #    # Obține doar bucket-ul S3 din output-ul Terraform
       #    S3_BUCKET=$(terraform output -raw my-argocd-bucket)
 
-          #   # Verifică dacă ai obținut bucket-ul corect
-          #echo "S3 Bucket: $S3_BUCKET"
 
           # Rulează playbook-ul Ansible, transmițând doar bucket-ul S3
           #INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
