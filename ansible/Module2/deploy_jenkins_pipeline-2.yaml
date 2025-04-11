@@ -108,7 +108,7 @@
 
     - name: Load AWS credentials from group_vars?
       ansible.builtin.include_vars:
-       dir: "./ansible/Module2/group_vars/all.yaml"
+       dir: "ansible/Module2/group_vars/all.yaml"
        extensions:
          - 'yaml'
 
