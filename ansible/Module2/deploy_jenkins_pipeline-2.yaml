@@ -119,34 +119,36 @@
         -s http://169.254.169.254/latest/meta-data/instance-id
       register: ec2_instance_id
 
-    - name: Get EC2 instance ID
-      shell: curl -s http://169.254.169.254/latest/meta-data/instance-id
-      register: instance_id
-
-    - name: Debug EC2 Instance ID
-      debug:
-        msg: "EC2 Instance ID: {{ instance_id.stdout }}"
-
-    - name: Get attached IAM role
+    - name: Get IAM Role name
       become: true
-      shell: curl -s http://169.254.169.254/latest/meta-data/iam/info | jq -r '.InstanceProfileArn'
+      shell: >
+        curl -s -H "X-aws-ec2-metadata-token: {{ imds_token.stdout }}"
+        http://169.254.169.254/latest/meta-data/iam/security-credentials/
+      register: iam_role_name
+      failed_when: iam_role_name.rc != 0
+      changed_when: false
+
+    - name: Get attached IAM Role ARN
+      become: true
+      shell: >
+        curl -s -H "X-aws-ec2-metadata-token: {{ imds_token.stdout }}"
+        http://169.254.169.254/latest/meta-data/iam/info | jq -r '.InstanceProfileArn'
       register: instance_profile_arn
       failed_when: instance_profile_arn.rc != 0
       changed_when: false
+
+    - name: Debug IAM Role name
+      debug:
+        msg: "IAM Role Name: {{ iam_role_name.stdout }}"
 
     - name: Debug IAM Role ARN
       debug:
         msg: "IAM Role ARN: {{ instance_profile_arn.stdout }}"
 
-    - name: Display IAM role
-      debug:
-        msg: "IAM Role ARN attached: {{ instance_profile_arn.stdout }}"
-
-    - name: Fail if no IAM role attached
+    - name: Fail if no IAM Role is attached
       fail:
         msg: "❌ EC2 instance has no IAM Role attached. Cannot call AWS APIs like iam_access_key_info."
       when: instance_profile_arn.stdout == ""
-
 
     - name: Fetch AWS Access Keys for IAM user 'devops-user'
       community.aws.iam_access_key_info:
