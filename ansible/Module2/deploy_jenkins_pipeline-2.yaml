@@ -106,6 +106,19 @@
       retries: 15    # Încearcă de 15 ori (~5 minute)
       delay: 20      # Așteaptă 20 secunde între încercări
 
+    - name: Get EC2 metadata token
+      command: >
+        curl -X PUT "http://169.254.169.254/latest/api/token"
+        -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"
+      register: imds_token
+      no_log: true
+
+    - name: Get EC2 instance ID with token
+      command: >
+        curl -H "X-aws-ec2-metadata-token: {{ imds_token.stdout }}"
+        -s http://169.254.169.254/latest/meta-data/instance-id
+      register: ec2_instance_id
+
     - name: Get EC2 instance ID
       shell: curl -s http://169.254.169.254/latest/meta-data/instance-id
       register: instance_id
