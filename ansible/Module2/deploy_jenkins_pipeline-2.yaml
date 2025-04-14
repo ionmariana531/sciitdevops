@@ -106,6 +106,25 @@
       retries: 15    # Încearcă de 15 ori (~5 minute)
       delay: 20      # Așteaptă 20 secunde între încercări
 
+    - name: Get EC2 instance ID
+      shell: curl -s http://169.254.169.254/latest/meta-data/instance-id
+      register: instance_id
+
+    - name: Get attached IAM role
+      shell: curl -s http://169.254.169.254/latest/meta-data/iam/info | jq -r '.InstanceProfileArn'
+      register: instance_profile_arn
+      failed_when: instance_profile_arn.rc != 0
+      changed_when: false
+
+    - name: Display IAM role
+      debug:
+        msg: "IAM Role ARN attached: {{ instance_profile_arn.stdout }}"
+
+    - name: Fail if no IAM role attached
+      fail:
+        msg: "❌ EC2 instance has no IAM Role attached. Cannot call AWS APIs like iam_access_key_info."
+      when: instance_profile_arn.stdout == ""
+
 
     - name: Fetch AWS Access Keys for IAM user 'devops-user'
       community.aws.iam_access_key_info:
