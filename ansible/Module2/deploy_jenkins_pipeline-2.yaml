@@ -110,11 +110,20 @@
       shell: curl -s http://169.254.169.254/latest/meta-data/instance-id
       register: instance_id
 
+    - name: Debug EC2 Instance ID
+      debug:
+        msg: "EC2 Instance ID: {{ instance_id.stdout }}"
+
     - name: Get attached IAM role
+      become: true
       shell: curl -s http://169.254.169.254/latest/meta-data/iam/info | jq -r '.InstanceProfileArn'
       register: instance_profile_arn
       failed_when: instance_profile_arn.rc != 0
       changed_when: false
+
+    - name: Debug IAM Role ARN
+      debug:
+        msg: "IAM Role ARN: {{ instance_profile_arn.stdout }}"
 
     - name: Display IAM role
       debug:
@@ -130,6 +139,10 @@
       community.aws.iam_access_key_info:
         user_name: "devops-user"
       register: access_keys
+
+    - name: Debug AWS Access Keys
+      debug:
+        msg: "Access Keys: {{ access_keys.access_keys }}"
 
     - name: Set AWS Access Key as environment variable for Jenkins
       set_fact:
