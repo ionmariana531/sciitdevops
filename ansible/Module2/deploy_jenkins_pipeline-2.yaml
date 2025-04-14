@@ -114,8 +114,8 @@
 
     - name: Set AWS Access Key as environment variable for Jenkins
       set_fact:
-        aws_access_key_id: "{{ iam_keys_info.access_keys[0].access_key_id }}"
-        aws_secret_access_key: "{{ iam_keys_info.access_keys[0].secret_access_key }}"
+        aws_access_key_id: "{{ access_keys.access_keys[0].access_key_id }}"
+        aws_secret_access_key: "{{ access_keys.access_keys[0].secret_access_key }}"
 
     - name: Create AWS Credentials in Jenkins from Secrets Manager
       community.general.jenkins_script:
@@ -133,8 +133,8 @@
               CredentialsScope.GLOBAL,
               "aws-credentials",
               "AWS Credentials for Terraform / Ansible",
-              "{{ aws_secret.secret['aws_access_key_id'] }}",
-              "{{ aws_secret.secret['aws_secret_access_key'] }}"
+              "{{ aws_access_key_id }}",
+              "{{ aws_secret_access_key }}"
           )
 
           credentials_store.addCredentials(Domain.global(), credentials)

@@ -9,4 +9,4 @@
 *.tfstate
 *.tfstate.backup
 
-group_vars/all.yaml
+ansible/Module2/group_vars/all.yaml
