@@ -84,15 +84,23 @@
         state: present
       when: ansible_os_family == "Debian"
 
-    - name: Install GitHub plugin using jenkins-cli without restart
+    - name: Check if GitHub plugin is already installed
+      shell: |
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" list-plugins | grep "^github "
+      register: github_plugin_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install GitHub plugin if not installed
       shell: |
         java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" install-plugin github
+      when: github_plugin_check.rc != 0
       register: github_plugin_result
 
-    - name: Restart Jenkins to apply plugin (only if needed)
+    - name: Restart Jenkins if plugin was installed
       shell: |
         java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" safe-restart
-      when: github_plugin_result.rc == 0
+      when: github_plugin_result is defined and github_plugin_result.rc == 0
 
     - name: Wait for Jenkins to come back online
       uri:
@@ -104,7 +112,6 @@
       until: result.status == 200
       retries: 30
       delay: 10
-      until: result.status == 200
 
     - name: Get EC2 IMDSv2 Token
       shell: |
@@ -123,7 +130,7 @@
 
     - name: Check if Jenkins is reachable
       uri:
-        url: "http://{{ jenkins_url }}:8080/"
+        url: "jenkins_url"
         return_content: yes
       register: result
 
