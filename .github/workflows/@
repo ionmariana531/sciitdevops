@@ -1,0 +1,129 @@
+name: "Terraform CI/CD"
+
+on:
+  push:
+    branches:
+      - add-terraform-github-actions-Mariana-fe
+
+  workflow_dispatch:
+
+jobs:
+  provision-ec2:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout repo
+      - uses: actions/checkout@v3
+
+      # Configure AWS credentials
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: '${{ secrets.AWS_ACCESS_KEY_ID }}'
+          aws-secret-access-key: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+          aws-region: 'eu-west-1'
+
+      # Terraform Setup
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+
+      # Generate Ansible Inventory File based on Terraform output
+      - name: Generate Ansible Inventory
+        run: |
+          echo "[master]" > ansible/inventory.ini
+          # echo "[worker]" >> ansible/inventory.ini
+          INSTANCE_IPS=$(terraform output -json instance_ips)
+
+          # Extract Master Node IP and add it to the inventory
+          MASTER_IP=$(echo "$INSTANCE_IPS" | jq -r '.[0]')
+          echo "$MASTER_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
+
+          # Extract Worker Node IPs and add them to the inventory
+          # WORKER_IPS=$(echo "$INSTANCE_IPS" | jq -r '.[1:]')
+          # for ip in $WORKER_IPS; do
+          #  echo "$ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem" >> ansible/inventory.ini
+          # done
+
+      # Add SSH Key from GitHub Secrets
+      - name: Add SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > ~/.ssh/aws-key.pem
+          chmod 600 ~/.ssh/aws-key.pem
+
+      # Test SSH connection (with retries)
+      - name: Test SSH connection
+        run: |
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          echo "Trying to SSH into $INSTANCE_IP"
+          RETRIES=5
+          SUCCESS=0
+          for i in $(seq 1 $RETRIES); do
+            if ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/aws-key.pem ubuntu@$INSTANCE_IP; then
+              SUCCESS=1
+              break
+            else
+              echo "❌ Attempt $i failed. Retrying in $((i * 20)) seconds..."
+              sleep $((i * 20))  # Creștem timpul de așteptare la fiecare încercare
+            fi
+          done
+
+          if [ $SUCCESS -eq 0 ]; then
+            echo "❌ SSH connection failed after $RETRIES attempts."
+            exit 1
+          fi
+          echo "✅ SSH connection successful!"
+
+      # Copy inventory.ini to EC2 after successful SSH connection
+      - name: Copy inventory.ini to EC2
+        run: |
+          INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
+          echo "Copying inventory.ini to $INSTANCE_IP..."
+          scp -i ~/.ssh/aws-key.pem -o StrictHostKeyChecking=no ansible/inventory.ini ubuntu@$INSTANCE_IP:/home/ubuntu/inventory.ini
+          echo "✅ inventory.ini successfully copied to EC2"
+
+      # Install Python 3.9+, Ansible, and dependencies
+      - name: Install Ansible and dependencies
+        run: |
+          sudo apt update && sudo apt install -y software-properties-common
+          sudo add-apt-repository -y ppa:deadsnakes/ppa
+          sudo apt update
+          sudo apt install -y python3.9 python3.9-venv python3.9-dev ansible
+
+          # Instalează manual pip dacă lipsește
+          curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
+
+          python3.9 -m pip install --upgrade pip
+          python3.9 -m pip install openshift pyyaml kubernetes jsonpatch
+
+          # Instalează colecția Kubernetes pentru Ansible
+          ansible-galaxy collection install kubernetes.core
+          ansible --version
+
+      # Verify pip installation
+      - name: Verify pip installation
+        run: python3.9 -m pip --version
+
+      # Run Ansible playbook for Collections
+      - name: Install Ansible collections
+        run: |
+          ansible-galaxy collection install -r ansible/Module2/collection-requirements.yaml
+
+      # Run Ansible Playbook for installing K3s, Docker, GIT, and SSH-SETUP
+      - name: Run Ansible Playbook
+        run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml -vvv
+
+      # Run Ansible Playbook to configure k3s cluster
+      - name: Run Ansible Playbook to configure k3s cluster
+        run: ansible-playbook -i ansible/inventory.ini ansible/Module2/configure_k3s_cluster.yaml -vvv
+
+      # Run Ansible Playbook to deploy ArgoCD and Jenkins
+      - name: Run Ansible Playbook for ArgoCD & Jenkins
+        run: ansible-playbook -i ansible/inventory.ini ansible/Module2/setup_argocd_jenkins.yaml -vvv

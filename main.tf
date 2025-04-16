@@ -60,9 +60,8 @@ data "aws_key_pair" "existing_key" {
 }
 
 # Folosește un instance profile care leagă rolul "devops-user" deja creat manual
-resource "aws_iam_instance_profile" "devops_profile" {
+data "aws_iam_instance_profile" "devops_profile" {
   name = "devops-user"
-  role = "devops-user"
 }
 
 # Create EC2 Instances
@@ -72,7 +71,7 @@ resource "aws_instance" "Instance1" {
   subnet_id              = data.aws_subnet.Subnet-VPC.id
   vpc_security_group_ids = [data.aws_security_group.existing_sg.id]
   key_name               = data.aws_key_pair.existing_key.key_name
-  iam_instance_profile   = aws_iam_instance_profile.devops_profile.name
+  iam_instance_profile = data.aws_iam_instance_profile.devops_profile.name
 
  root_block_device {
     volume_size = 20  # Setează 20GB pentru root volume

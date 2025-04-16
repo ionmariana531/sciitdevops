@@ -1,0 +1,93 @@
+name: Azure Infrastructure 
+
+on:
+  push:
+    branches:
+      - add-terraform-github-actions-Mariana-fe
+  workflow_dispatch:
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: 'Login to Azure'
+        uses: azure/login@v1
+        with:
+          app-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+            
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+
+      - name: Generate Ansible Inventory
+        run: |
+          INSTANCE_IP=$(terraform output -raw test_vm_public_ip)
+          mkdir -p ansible
+          echo "[master]" > ansible/inventory.ini
+          echo "$INSTANCE_IP ansible_user=azureuser ansible_ssh_private_key_file=/home/mariana/azure.pem" >> ansible/inventory.ini
+          cat ansible/inventory.ini
+
+      - name: Add Azure SSH Key on Runner
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AZURE_SSH_KEY }}" > ~/.ssh/azure.pem
+          chmod 600 ~/.ssh/azure.pem
+
+      - name: 'Wait for SSH to become available on Azure VM'
+        run: |
+          INSTANCE_IP=$(terraform output -raw test_vm_public_ip)
+          WAIT_TIME=5
+          MAX_WAIT_TIME=60
+          RETRIES=0
+          while ! nc -zv $INSTANCE_IP 22 && [ $RETRIES -lt 10 ]; do
+            echo "Waiting for SSH to become available... Retry $((RETRIES+1))"
+            sleep $WAIT_TIME
+            RETRIES=$((RETRIES + 1))
+            WAIT_TIME=$((WAIT_TIME + 5))
+            if [ $WAIT_TIME -gt $MAX_WAIT_TIME ]; then
+              WAIT_TIME=$MAX_WAIT_TIME
+            fi
+          done
+          if [ $RETRIES -ge 10 ]; then
+            echo "SSH did not become available after 10 attempts."
+            exit 1
+          fi
+            echo "SSH is now available on $INSTANCE_IP"
+
+      - name: Test SSH connection to Azure VM
+        run: |
+          INSTANCE_IP=$(terraform output -raw test_vm_public_ip)
+           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/azure.pem azureuser@$INSTANCE_IP "echo 'SSH connection successful'"
+
+      - name: Install Ansible on Azure VM
+        run: |
+          INSTANCE_IP=$(terraform output -raw test_vm_public_ip)  # Obține IP-ul public al VM-ului din Terraform output
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/azure.pem azureuser@$INSTANCE_IP << 'EOF'
+            sudo apt update
+            sudo apt install -y ansible
+          EOF
+
+      - name: Install Ansible collections on the runner
+        run: |
+          ansible-galaxy collection install kubernetes.core
+          ansible-galaxy collection install -r ./ansible/Module2/collection-requirements.yaml
+
+      - name: Run Ansible Playbook on Azure VM
+        run: |
+          INSTANCE_IP=$(terraform output -raw test_vm_public_ip)
+          ansible-playbook -i ansible/inventory.ini install_k3s_cluster.yaml -vvv -u azureuser --private-key ~/.ssh/azure.pem
+

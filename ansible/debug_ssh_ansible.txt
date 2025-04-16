@@ -1,0 +1,59 @@
+---
+- name: Debug SSH Issues on AWS EC2
+  hosts: master
+  gather_facts: no
+  tasks:
+    - name: Check SSH connectivity
+      command: whoami
+      register: ssh_test
+      ignore_errors: yes
+
+    - name: Show SSH connectivity result
+      debug:
+        msg: "SSH connection successful, logged in as {{ ssh_test.stdout }}"
+      when: ssh_test.rc == 0
+
+    - name: Check SSH service status
+      command: systemctl status ssh
+      register: ssh_status
+      ignore_errors: yes
+
+    - name: Show SSH service status
+      debug:
+        var: ssh_status.stdout
+
+    - name: Check if SSH keys exist
+      command: ls -l /etc/ssh/ssh_host_*
+      register: ssh_keys
+      ignore_errors: yes
+
+    - name: Show SSH keys
+      debug:
+        var: ssh_keys.stdout
+
+    - name: Show last authentication logs
+      command: tail -n 20 /var/log/auth.log
+      register: auth_logs
+      ignore_errors: yes
+
+    - name: Show authentication logs
+      debug:
+        var: auth_logs.stdout
+
+    - name: Check active firewall rules (iptables)
+      command: iptables -L -v -n
+      register: iptables_rules
+      ignore_errors: yes
+
+    - name: Show firewall rules
+      debug:
+        var: iptables_rules.stdout
+
+    - name: Check AWS security groups
+      shell: "curl -s http://169.254.169.254/latest/meta-data/security-groups"
+      register: aws_sg
+      ignore_errors: yes
+
+    - name: Show AWS Security Groups
+      debug:
+        var: aws_sg.stdout
