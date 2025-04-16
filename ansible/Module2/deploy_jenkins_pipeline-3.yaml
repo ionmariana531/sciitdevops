@@ -106,22 +106,6 @@
       delay: 10
       until: result.status == 200
 
-    - name: Attach IAM role to EC2 instance (devops-user)
-      shell: |
-        aws ec2 associate-iam-instance-profile \
-          --instance-id {{ ec2_instance_id.stdout }} \
-          --iam-instance-profile Name="devops-user" \
-          --region eu-west-1
-      environment:
-        AWS_REGION: eu-west-1
-      register: attach_role_result
-      failed_when: attach_role_result.rc != 0
-      changed_when: true
-
-    - name: Confirm IAM role attached
-      debug:
-        msg: "✅ IAM Role 'devops-user' attached to instance {{ ec2_instance_id.stdout }} in eu-west-1"
-
     - name: Get IAM Role name
       become: true
       shell: >
