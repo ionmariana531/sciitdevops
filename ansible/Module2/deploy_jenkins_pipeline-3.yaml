@@ -106,6 +106,12 @@
       delay: 10
       until: result.status == 200
 
+    - name: Get EC2 IMDSv2 Token
+      shell: |
+        curl -X PUT "http://169.254.169.254/latest/api/token" \
+        -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"
+      register: imds_token
+
     - name: Get IAM Role name
       become: true
       shell: >
