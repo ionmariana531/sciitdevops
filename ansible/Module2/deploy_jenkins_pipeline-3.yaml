@@ -132,10 +132,8 @@
       uri:
         url: "{{ jenkins_url }}"
         return_content: yes
+        status_code: [200, 403]
       register: result
-
-    - debug:
-        var: result.content
 
     - name: Fetch AWS Access Keys for IAM user 'devops-user'
       community.aws.iam_access_key_info:
