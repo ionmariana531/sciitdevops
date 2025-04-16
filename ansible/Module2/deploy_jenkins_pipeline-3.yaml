@@ -102,8 +102,9 @@
         validate_certs: no
       register: result
       until: result.status == 200
-      retries: 15
-      delay: 20
+      retries: 30
+      delay: 10
+      until: result.status == 200
 
     - name: Attach IAM role to EC2 instance (devops-user)
       shell: |
