@@ -130,7 +130,7 @@
 
     - name: Check if Jenkins is reachable
       uri:
-        url: "jenkins_url"
+        url: "{{ jenkins_url }}"
         return_content: yes
       register: result
 
