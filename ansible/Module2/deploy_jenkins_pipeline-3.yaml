@@ -125,6 +125,12 @@
       community.aws.iam_access_key_info:
         user_name: "devops-user"
       register: access_keys
+      become: false
+
+    - name: Show access key ID
+      debug:
+        msg: "Access Key ID: {{ access_keys.access_keys[0].access_key_id }}"
+      when: access_keys.access_keys | length > 0
 
     - name: Debug AWS Access Keys
       debug:
