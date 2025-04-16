@@ -140,7 +140,7 @@ jobs:
           export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
           export AWS_SESSION_TOKEN="${{ secrets.AWS_SESSION_TOKEN }}"
           INSTANCE_IP=$(terraform output -json instance_ips | jq -r '.[0]')
-          ansible-playbook -i ansible/inventory.ini ansible/Module2/deploy_jenkins_pipeline-2.yaml -vvvv -u ubuntu --private-key ~/.ssh/app-ssh-key.pem
+          ansible-playbook -i ansible/inventory.ini ansible/Module2/deploy_jenkins_pipeline-3.yaml -vvvv -u ubuntu --private-key ~/.ssh/app-ssh-key.pem
              
       #      - name: Run Playbook 3
       # run: |
