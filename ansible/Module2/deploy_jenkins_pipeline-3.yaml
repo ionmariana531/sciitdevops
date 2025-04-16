@@ -121,6 +121,15 @@
       failed_when: iam_role_name.rc != 0
       changed_when: false
 
+    - name: Check if Jenkins is reachable
+      uri:
+        url: "http://{{ jenkins_url }}:8080/"
+        return_content: yes
+      register: result
+
+    - debug:
+        var: result.content
+
     - name: Fetch AWS Access Keys for IAM user 'devops-user'
       community.aws.iam_access_key_info:
         user_name: "devops-user"
