@@ -192,7 +192,7 @@
           )
 
           credentials_store.addCredentials(Domain.global(), credentials)
-      no_log: true  # pentru a nu afișa cheile în loguri
+      no_log: true  # pentru a nu afișa cheile în loguri?
 
     - name: Install Jenkins plugin for AWS integration
       community.general.jenkins_plugin:
@@ -207,4 +207,3 @@
       shell: |
         java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" safe-restart
       when: aws_plugin_result.rc == 0
-
