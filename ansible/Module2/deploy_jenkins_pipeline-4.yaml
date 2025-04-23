@@ -138,9 +138,14 @@
     # Fetch GitHub credentials from AWS Secrets Manager
     - name: Fetch GitHub credentials from Secrets Manager
       community.aws.aws_secret:
-        secret_name: "github_repo_url_secret_name"
-        region: "eu-west-1"
+        name: 'github_repo_url_secret_name'
+        region: 'eu-west-1'
       register: github_secrets
+
+    - name: Show GitHub repository URL
+      debug:
+        msg: "{{ github_secrets.secret }}"
+
 
     # Display GitHub Repo URL from Secrets Manager
     - name: Display GitHub Repo URL from Secrets Manager
