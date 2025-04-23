@@ -1,0 +1,210 @@
+---
+- name: Deploy Jenkins Pipeline
+  hosts: master
+  become: true
+
+  tasks:
+    - name: Install Terraform
+      become: true
+      shell: |
+        curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+        https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+        sudo apt update
+        sudo apt install terraform
+      when: ansible_os_family == "Debian"
+
+    - name: Copy inventory.ini from runner to remote EC2 instance
+      copy:
+        src: /home/runner/work/sciitdevops/sciitdevops/ansible/inventory.ini
+        dest: /home/ubuntu/.ansible/inventory.ini
+        remote_src: no
+
+    - name: Check if inventory.ini exists on remote
+      ansible.builtin.stat:
+        path: /home/ubuntu/.ansible/inventory.ini
+      register: inventory_file
+
+    - name: Display result
+      debug:
+        msg: "Inventory file exists!"
+      when: inventory_file.stat.exists
+
+    - name: Read inventory.ini to get the public IP
+      shell: awk '/\[master\]/{getline; print $1}' /home/ubuntu/.ansible/inventory.ini
+      register: instance_ip
+      changed_when: false
+
+    - name: Display the extracted IP
+      debug:
+        msg: "{{ instance_ip.stdout }}"
+
+    - name: Install ACL package
+      apt:
+        name: acl
+        state: present
+
+    - name: Get Jenkins NodePort
+      shell: |
+        kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml \
+        get svc jenkins -n jenkins -o jsonpath='{.spec.ports[0].nodePort}'
+      register: jenkins_nodeport
+      changed_when: false
+
+    - name: Construct Jenkins URL
+      set_fact:
+        jenkins_url: "http://{{ instance_ip.stdout }}:{{ jenkins_nodeport.stdout | default('none') }}"
+
+    - name: Display Jenkins URL
+      debug:
+        msg: "Jenkins is available at {{ jenkins_url }}"
+
+    - name: Get Jenkins pod name
+      shell: "kubectl get pods -n jenkins -l app=jenkins -o jsonpath='{.items[0].metadata.name}'"
+      register: jenkins_pod_name
+
+    - name: Get Jenkins initial admin password using kubectl
+      shell: kubectl exec -n jenkins {{ jenkins_pod_name.stdout }} -- cat /var/jenkins_home/secrets/initialAdminPassword
+      register: jenkins_admin_password
+      no_log: false
+
+    - name: Show Jenkins admin password
+      debug:
+        msg: "Jenkins Admin Password: {{ jenkins_admin_password.stdout }}"
+
+    - name: Download Jenkins CLI jar
+      get_url:
+        url: "{{ jenkins_url }}/jnlpJars/jenkins-cli.jar"
+        dest: "/tmp/jenkins-cli.jar"
+
+    - name: Install OpenJDK 17
+      become: true
+      apt:
+        name: openjdk-17-jre
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Check if GitHub plugin is already installed
+      shell: |
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" list-plugins | grep "^github "
+      register: github_plugin_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install GitHub plugin if not installed
+      shell: |
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" install-plugin github
+      when: github_plugin_check.rc != 0
+      register: github_plugin_result
+
+    - name: Restart Jenkins if plugin was installed
+      shell: |
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" safe-restart
+      when: github_plugin_result is defined and github_plugin_result.rc == 0
+
+    - name: Wait for Jenkins to come back online
+      uri:
+        url: "{{ jenkins_url }}/login"
+        method: GET
+        status_code: 200
+        validate_certs: no
+      register: result
+      until: result.status == 200
+      retries: 30
+      delay: 10
+
+    - name: Get EC2 IMDSv2 Token
+      shell: |
+        curl -X PUT "http://169.254.169.254/latest/api/token" \
+        -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"
+      register: imds_token
+
+    - name: Get IAM Role name
+      become: true
+      shell: >
+        curl -s -H "X-aws-ec2-metadata-token: {{ imds_token.stdout }}"
+        http://169.254.169.254/latest/meta-data/iam/security-credentials/
+      register: iam_role_name
+      failed_when: iam_role_name.rc != 0
+      changed_when: false
+
+    - name: Check if Jenkins is reachable
+      uri:
+        url: "{{ jenkins_url }}"
+        return_content: yes
+        status_code: [200, 403]
+      register: result
+
+    # Fetch GitHub credentials from AWS Secrets Manager
+    - name: Fetch GitHub credentials from Secrets Manager
+      community.aws.aws_secret:
+        secret_name: "github_repo_url_secret_name"
+        region: "eu-west-1"
+      register: github_secrets
+
+    # Display GitHub Repo URL from Secrets Manager
+    - name: Display GitHub Repo URL from Secrets Manager
+      debug:
+        msg: "GitHub Repo URL: {{ github_secrets.secrets.github_repo_url }}"
+
+    # Display GitHub User from Secrets Manager
+    - name: Display GitHub User from Secrets Manager
+      debug:
+        msg: "GitHub User: {{ github_secrets.secrets.github_user }}"
+
+    # Display GitHub Token from Secrets Manager
+    - name: Display GitHub Token from Secrets Manager
+      debug:
+        msg: "GitHub Token: {{ github_secrets.secrets.github_token }}"
+
+    - name: Show access key ID
+      debug:
+        msg: "Access Key ID: {{ access_keys.access_keys[0].access_key_id }}"
+      when: access_keys.access_keys | length > 0
+
+    - name: Debug AWS Access Keys
+      debug:
+        msg: "Access Keys: {{ access_keys.access_keys }}"
+
+    - name: Set AWS Access Key as environment variable for Jenkins
+      set_fact:
+        aws_access_key_id: "{{ access_keys.access_keys[0].access_key_id }}"
+        aws_secret_access_key: "{{ access_keys.access_keys[0].secret_access_key }}"
+
+    - name: Create AWS Credentials in Jenkins from Secrets Manager
+      community.general.jenkins_script:
+        url: "{{ jenkins_url }}"
+        user: "admin"
+        password: "{{ jenkins_admin_password.stdout }}"
+        script: |
+          import com.cloudbees.plugins.credentials.*
+          import com.cloudbees.plugins.credentials.domains.*
+          import com.cloudbees.plugins.credentials.impl.*
+          import hudson.util.Secret
+          def credentials_store = Jenkins.instance.getExtensionList('com.cloudbees.plugins.credentials.SystemCredentialsProvider')[0].getStore()
+
+          def credentials = new UsernamePasswordCredentialsImpl(
+              CredentialsScope.GLOBAL,
+              "aws-credentials",
+              "AWS Credentials for Terraform / Ansible",
+              "{{ aws_access_key_id }}",
+              "{{ aws_secret_access_key }}"
+          )
+
+          credentials_store.addCredentials(Domain.global(), credentials)
+      no_log: true  # pentru a nu afișa cheile în loguri
+
+    - name: Install Jenkins plugin for AWS integration
+      community.general.jenkins_plugin:
+        name: "amazon-ecs"
+        url: "{{ jenkins_url }}"
+        user: "admin"
+        password: "{{ jenkins_admin_password.stdout }}"
+        state: latest
+      register: aws_plugin_result
+
+    - name: Restart Jenkins after installing AWS plugin (if needed)
+      shell: |
+        java -jar /tmp/jenkins-cli.jar -s {{ jenkins_url }} -auth "admin:{{ jenkins_admin_password.stdout }}" safe-restart
+      when: aws_plugin_result.rc == 0
+
