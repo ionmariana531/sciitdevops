@@ -145,17 +145,24 @@
     # Display GitHub Repo URL from Secrets Manager
     - name: Display GitHub Repo URL from Secrets Manager
       debug:
-        msg: "GitHub Repo URL: {{ github_secrets.secrets.github_repo_url }}"
+        msg: "GitHub Repo URL: {{ github_secrets.secret_string.github_repo_url }}"
+      no_log: true
 
     # Display GitHub User from Secrets Manager
     - name: Display GitHub User from Secrets Manager
       debug:
-        msg: "GitHub User: {{ github_secrets.secrets.github_user }}"
+        msg: "GitHub User: {{ github_secrets.secret_string.github_user }}"
+      no_log: true
 
     # Display GitHub Token from Secrets Manager
     - name: Display GitHub Token from Secrets Manager
       debug:
-        msg: "GitHub Token: {{ github_secrets.secrets.github_token }}"
+        msg: "GitHub Token: {{ github_secrets.secret_string.github_token }}"
+      no_log: true
+
+    - name: Verifică structura secret_string
+      debug:
+        var: github_secrets.secret_string
 
     - name: Show access key ID
       debug:
@@ -170,6 +177,11 @@
       set_fact:
         aws_access_key_id: "{{ access_keys.access_keys[0].access_key_id }}"
         aws_secret_access_key: "{{ access_keys.access_keys[0].secret_access_key }}"
+          
+    - name: Verificare aws_access_key_id înainte de Jenkins script
+      debug:
+        var: aws_access_key_id
+      no_log: true
 
     - name: Create AWS Credentials in Jenkins from Secrets Manager
       community.general.jenkins_script:
