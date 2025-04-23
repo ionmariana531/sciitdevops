@@ -4,6 +4,14 @@
   become: true
 
   tasks:
+    - name: Show AWS environment variables
+      shell: env | grep AWS_
+      register: aws_env
+      changed_when: false
+
+    - debug:
+        var: aws_env.stdout_lines
+
     - name: Install Terraform
       become: true
       shell: |
